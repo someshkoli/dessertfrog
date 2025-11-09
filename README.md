@@ -1,6 +1,6 @@
 # dessertfrog
 
-A terminal UI database browser for PostgreSQL and MariaDB.
+A terminal UI database browser for SQL style datastores.
 
 ## Features
 
@@ -57,24 +57,27 @@ dessertfrog --driver postgres --host localhost --port 5432 --username postgres -
 
 #### Table Data View
 - `↑/↓/←/→` or `h/j/k/l` - Navigate cells
-- `Space` - View cell value (opens popup for large values)
-- `e` - Edit cell value
-- `Esc` or `Backspace` - Return to table list
+- `v` - View cell value (opens popup for large values)
+- `V` - View record (opens popup for entire row)
+- `y` - Copy cell value to clipboard
+- `Y` - Copy record (entire row) to clipboard
+- `w/b` - Jump forward/backward between cells
+- `i` - Edit cell value
+- `Esc` - Return to table list
 - `/` - Search within table data
-- `n/N` - Next/previous page
+- `n/p` - Next/previous page
 - `s` - OpenSQL query editor
-- `c` - Copy cell value to clipboard
 
-#### Cell Popup
+#### Cell/Record Popup
 - `↑/↓` or `k/j` - Scroll (or navigate JSON tree)
 - `Space` or `Enter` - Toggle JSON node expansion
-- `c` - Copy value to clipboard
+- `y` - Copy value to clipboard
 - `Esc` - Close popup
 
 ## Supported Databases
 
 - PostgreSQL
-- MariaDB (partial support)
+- MariaDB (not supported yet)
 
 ## Dependencies
 
