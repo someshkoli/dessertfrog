@@ -105,7 +105,11 @@ func (m Model) handleSearchModeKeys(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 				m.searchMode = false
 				m.searchQuery = ""
 				m.searchSelected = 0
-				return m, fetchTableData(m.driver, selectedEntity.SchemaName, selectedEntity.TableName, 0)
+				// Fetch both data and schema in parallel
+				return m, tea.Batch(
+					fetchTableData(m.driver, selectedEntity.SchemaName, selectedEntity.TableName, 0),
+					fetchTableSchema(m.driver, selectedEntity.SchemaName, selectedEntity.TableName),
+				)
 			} else {
 				// Non-table entity: find in tables list and update selectedRow, stay on home screen
 				for i, table := range m.tables {
@@ -245,7 +249,11 @@ func (m Model) handleInlineSearchModeKeys(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 			m.inlineSearchMode = false
 			m.inlineSearchQuery = ""
 			m.inlineSearchSuggestion = ""
-			return m, fetchTableData(m.driver, selectedTable.SchemaName, selectedTable.TableName, 0)
+			// Fetch both data and schema in parallel
+			return m, tea.Batch(
+				fetchTableData(m.driver, selectedTable.SchemaName, selectedTable.TableName, 0),
+				fetchTableSchema(m.driver, selectedTable.SchemaName, selectedTable.TableName),
+			)
 		}
 
 		// If no table selected, just close inline search mode
@@ -340,7 +348,11 @@ func (m Model) handleNormalModeKeys(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 				m.tableDataLoading = true
 				m.tableDataError = ""
 				m.tableDataOffset = 0 // Start from first page
-				return m, fetchTableData(m.driver, selectedTable.SchemaName, selectedTable.TableName, 0)
+				// Fetch both data and schema in parallel
+				return m, tea.Batch(
+					fetchTableData(m.driver, selectedTable.SchemaName, selectedTable.TableName, 0),
+					fetchTableSchema(m.driver, selectedTable.SchemaName, selectedTable.TableName),
+				)
 			}
 
 		case CommandHistoryBack:

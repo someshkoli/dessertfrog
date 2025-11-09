@@ -26,6 +26,14 @@ type tableDataLoadFailedMsg struct {
 	err error
 }
 
+// Table schema messages
+type tableSchemaLoadedMsg struct {
+	schema *driver.TableSchema
+}
+type tableSchemaLoadFailedMsg struct {
+	err error
+}
+
 // Clipboard messages
 type clearClipboardMsgType struct{}
 

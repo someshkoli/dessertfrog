@@ -7,12 +7,13 @@ import (
 	"strings"
 
 	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgxpool"
 )
 
 // PostgresDriver implements the Driver interface for PostgreSQL databases
 type PostgresDriver struct {
 	config *Config
-	conn   *pgx.Conn
+	pool   *pgxpool.Pool
 }
 
 // NewPostgresDriver creates a new PostgreSQL driver instance
@@ -22,11 +23,11 @@ func NewPostgresDriver(config *Config) *PostgresDriver {
 	}
 }
 
-// Connect establishes a connection to the PostgreSQL database
+// Connect establishes a connection pool to the PostgreSQL database
 func (p *PostgresDriver) Connect(ctx context.Context) error {
 	// Build connection string
 	connString := fmt.Sprintf(
-		"host=%s port=%d user=%s password=%s dbname=%s sslmode=%s",
+		"host=%s port=%d user=%s password=%s dbname=%s sslmode=%s pool_max_conns=10",
 		p.config.Host,
 		p.config.Port,
 		p.config.User,
@@ -35,37 +36,37 @@ func (p *PostgresDriver) Connect(ctx context.Context) error {
 		p.config.SSLMode,
 	)
 
-	// Establish connection
-	conn, err := pgx.Connect(ctx, connString)
+	// Create connection pool
+	pool, err := pgxpool.New(ctx, connString)
 	if err != nil {
-		return fmt.Errorf("failed to connect to postgres: %w", err)
+		return fmt.Errorf("failed to create postgres connection pool: %w", err)
 	}
 
-	p.conn = conn
+	p.pool = pool
 
 	// Verify connection is working
 	if err := p.Ping(ctx); err != nil {
-		p.conn.Close(ctx)
+		p.pool.Close()
 		return fmt.Errorf("failed to ping postgres after connection: %w", err)
 	}
 
 	return nil
 }
 
-// Close closes the PostgreSQL connection
+// Close closes the PostgreSQL connection pool
 func (p *PostgresDriver) Close() error {
-	if p.conn != nil {
-		return p.conn.Close(context.Background())
+	if p.pool != nil {
+		p.pool.Close()
 	}
 	return nil
 }
 
 // Ping verifies the connection to the database is still alive
 func (p *PostgresDriver) Ping(ctx context.Context) error {
-	if p.conn == nil {
-		return fmt.Errorf("connection is not established")
+	if p.pool == nil {
+		return fmt.Errorf("connection pool is not established")
 	}
-	return p.conn.Ping(ctx)
+	return p.pool.Ping(ctx)
 }
 
 // GetConnectionInfo returns information about the current connection
@@ -81,8 +82,8 @@ func (p *PostgresDriver) GetConnectionInfo() ConnectionInfo {
 
 // GetTables returns a list of tables with basic information
 func (p *PostgresDriver) GetTables(ctx context.Context) ([]TableSchema, error) {
-	if p.conn == nil {
-		return nil, fmt.Errorf("connection is not established")
+	if p.pool == nil {
+		return nil, fmt.Errorf("connection pool is not established")
 	}
 
 	var query string
@@ -110,7 +111,7 @@ func (p *PostgresDriver) GetTables(ctx context.Context) ([]TableSchema, error) {
 			GROUP BY t.table_schema, t.table_name, t.table_type, pgc.reltuples
 			ORDER BY t.table_name
 		`
-		rows, err = p.conn.Query(ctx, query, p.config.Schema)
+		rows, err = p.pool.Query(ctx, query, p.config.Schema)
 	} else {
 		// Show all non-system schemas
 		query = `
@@ -132,7 +133,7 @@ func (p *PostgresDriver) GetTables(ctx context.Context) ([]TableSchema, error) {
 			GROUP BY t.table_schema, t.table_name, t.table_type, pgc.reltuples
 			ORDER BY t.table_schema, t.table_name
 		`
-		rows, err = p.conn.Query(ctx, query)
+		rows, err = p.pool.Query(ctx, query)
 	}
 	if err != nil {
 		return nil, fmt.Errorf("failed to query tables: %w", err)
@@ -179,7 +180,7 @@ func (p *PostgresDriver) GetTables(ctx context.Context) ([]TableSchema, error) {
 
 // GetTableSchema returns detailed schema information for a specific table
 func (p *PostgresDriver) GetTableSchema(ctx context.Context, schemaName, tableName string) (*TableSchema, error) {
-	if p.conn == nil {
+	if p.pool == nil {
 		return nil, fmt.Errorf("connection is not established")
 	}
 
@@ -198,7 +199,7 @@ func (p *PostgresDriver) GetTableSchema(ctx context.Context, schemaName, tableNa
 	`
 
 	var comment *string
-	err := p.conn.QueryRow(ctx, tableQuery, schemaName, tableName).Scan(&schema.TableType, &comment)
+	err := p.pool.QueryRow(ctx, tableQuery, schemaName, tableName).Scan(&schema.TableType, &comment)
 	if err != nil {
 		return nil, fmt.Errorf("failed to query table info: %w", err)
 	}
@@ -245,7 +246,7 @@ func (p *PostgresDriver) GetTableSchema(ctx context.Context, schemaName, tableNa
 		ORDER BY c.ordinal_position
 	`
 
-	rows, err := p.conn.Query(ctx, columnQuery, schemaName, tableName)
+	rows, err := p.pool.Query(ctx, columnQuery, schemaName, tableName)
 	if err != nil {
 		return nil, fmt.Errorf("failed to query columns: %w", err)
 	}
@@ -296,7 +297,7 @@ func (p *PostgresDriver) GetTableSchema(ctx context.Context, schemaName, tableNa
 
 // GetAllEntities returns all database entities (tables, views, functions, triggers)
 func (p *PostgresDriver) GetAllEntities(ctx context.Context) ([]TableSchema, error) {
-	if p.conn == nil {
+	if p.pool == nil {
 		return nil, fmt.Errorf("connection is not established")
 	}
 
@@ -348,7 +349,7 @@ func (p *PostgresDriver) fetchTablesAndViews(ctx context.Context) ([]TableSchema
 			GROUP BY t.table_schema, t.table_name, t.table_type
 			ORDER BY t.table_name
 		`
-		rows, err = p.conn.Query(ctx, query, p.config.Schema)
+		rows, err = p.pool.Query(ctx, query, p.config.Schema)
 	} else {
 		query = `
 			SELECT
@@ -365,7 +366,7 @@ func (p *PostgresDriver) fetchTablesAndViews(ctx context.Context) ([]TableSchema
 			GROUP BY t.table_schema, t.table_name, t.table_type
 			ORDER BY t.table_schema, t.table_name
 		`
-		rows, err = p.conn.Query(ctx, query)
+		rows, err = p.pool.Query(ctx, query)
 	}
 	if err != nil {
 		return nil, fmt.Errorf("failed to query tables and views: %w", err)
@@ -424,7 +425,7 @@ func (p *PostgresDriver) fetchFunctions(ctx context.Context) ([]TableSchema, err
 				AND p.prokind = 'f'
 			ORDER BY p.proname
 		`
-		rows, err = p.conn.Query(ctx, query, p.config.Schema)
+		rows, err = p.pool.Query(ctx, query, p.config.Schema)
 	} else {
 		query = `
 			SELECT
@@ -437,7 +438,7 @@ func (p *PostgresDriver) fetchFunctions(ctx context.Context) ([]TableSchema, err
 				AND p.prokind = 'f'
 			ORDER BY n.nspname, p.proname
 		`
-		rows, err = p.conn.Query(ctx, query)
+		rows, err = p.pool.Query(ctx, query)
 	}
 	if err != nil {
 		return nil, fmt.Errorf("failed to query functions: %w", err)
@@ -488,7 +489,7 @@ func (p *PostgresDriver) fetchTriggers(ctx context.Context) ([]TableSchema, erro
 				AND NOT t.tgisinternal
 			ORDER BY t.tgname
 		`
-		rows, err = p.conn.Query(ctx, query, p.config.Schema)
+		rows, err = p.pool.Query(ctx, query, p.config.Schema)
 	} else {
 		query = `
 			SELECT
@@ -502,7 +503,7 @@ func (p *PostgresDriver) fetchTriggers(ctx context.Context) ([]TableSchema, erro
 				AND NOT t.tgisinternal
 			ORDER BY n.nspname, t.tgname
 		`
-		rows, err = p.conn.Query(ctx, query)
+		rows, err = p.pool.Query(ctx, query)
 	}
 	if err != nil {
 		return nil, fmt.Errorf("failed to query triggers: %w", err)
@@ -536,7 +537,7 @@ func (p *PostgresDriver) fetchTriggers(ctx context.Context) ([]TableSchema, erro
 
 // GetTableData fetches actual data from a table or view
 func (p *PostgresDriver) GetTableData(ctx context.Context, schemaName, tableName string, limit, offset int) ([]string, [][]string, error) {
-	if p.conn == nil {
+	if p.pool == nil {
 		return nil, nil, fmt.Errorf("connection is not established")
 	}
 
@@ -544,7 +545,7 @@ func (p *PostgresDriver) GetTableData(ctx context.Context, schemaName, tableName
 	query := fmt.Sprintf(`SELECT * FROM "%s"."%s" LIMIT $1 OFFSET $2`, schemaName, tableName)
 
 	// Execute query
-	rows, err := p.conn.Query(ctx, query, limit, offset)
+	rows, err := p.pool.Query(ctx, query, limit, offset)
 	if err != nil {
 		return nil, nil, fmt.Errorf("failed to query table data: %w", err)
 	}
@@ -600,12 +601,12 @@ func (p *PostgresDriver) GetTableData(ctx context.Context, schemaName, tableName
 
 // ExecuteQuery executes a custom SQL query and returns the results
 func (p *PostgresDriver) ExecuteQuery(ctx context.Context, query string) ([]string, [][]string, error) {
-	if p.conn == nil {
+	if p.pool == nil {
 		return nil, nil, fmt.Errorf("connection is not established")
 	}
 
 	// Execute the query
-	rows, err := p.conn.Query(ctx, query)
+	rows, err := p.pool.Query(ctx, query)
 	if err != nil {
 		return nil, nil, fmt.Errorf("failed to execute query: %w", err)
 	}
@@ -659,13 +660,12 @@ func (p *PostgresDriver) ExecuteQuery(ctx context.Context, query string) ([]stri
 	return columns, data, nil
 }
 // UpdateCell updates a single cell in a table
-func (p *PostgresDriver) UpdateCell(ctx context.Context, schemaName, tableName string, columns []string, oldRow []string, columnName, newValue string) error {
-	if p.conn == nil {
+func (p *PostgresDriver) UpdateCell(ctx context.Context, tableSchema *TableSchema, columns []string, oldRow []string, columnName, newValue string) error {
+	if p.pool == nil {
 		return fmt.Errorf("connection is not established")
 	}
 
-	// Build UPDATE query with WHERE clause that matches all columns of the old row
-	// This ensures we update exactly the row we intend to update
+	// Build UPDATE query
 	var whereParts []string
 	var args []interface{}
 	argIndex := 1
@@ -675,21 +675,58 @@ func (p *PostgresDriver) UpdateCell(ctx context.Context, schemaName, tableName s
 	setClause := fmt.Sprintf("%s = $%d", pgx.Identifier{columnName}.Sanitize(), argIndex)
 	argIndex++
 
-	// Build WHERE clause using all column values to uniquely identify the row
-	for i, col := range columns {
-		if i < len(oldRow) {
-			if oldRow[i] == "NULL" {
+	// Determine which columns to use in WHERE clause
+	// Priority: 1) Primary keys (if available), 2) All columns
+	var whereColumns []string
+
+	// Check if we have table schema with primary key information
+	if tableSchema != nil && len(tableSchema.Columns) > 0 {
+		// Find primary key columns
+		for _, col := range tableSchema.Columns {
+			if col.IsPrimaryKey {
+				whereColumns = append(whereColumns, col.Name)
+			}
+		}
+	}
+
+	// If no primary keys found, use all columns to identify the row
+	if len(whereColumns) == 0 {
+		whereColumns = columns
+	}
+
+	// Build WHERE clause using selected columns
+	for _, col := range whereColumns {
+		// Find the index of this column in the columns array
+		colIdx := -1
+		for i, c := range columns {
+			if c == col {
+				colIdx = i
+				break
+			}
+		}
+
+		if colIdx >= 0 && colIdx < len(oldRow) {
+			if oldRow[colIdx] == "NULL" {
 				// Handle NULL values
 				whereParts = append(whereParts, fmt.Sprintf("%s IS NULL", pgx.Identifier{col}.Sanitize()))
 			} else {
 				whereParts = append(whereParts, fmt.Sprintf("%s = $%d", pgx.Identifier{col}.Sanitize(), argIndex))
-				args = append(args, oldRow[i])
+				args = append(args, oldRow[colIdx])
 				argIndex++
 			}
 		}
 	}
 
 	whereClause := strings.Join(whereParts, " AND ")
+
+	// Get schema and table names
+	var schemaName, tableName string
+	if tableSchema != nil {
+		schemaName = tableSchema.SchemaName
+		tableName = tableSchema.TableName
+	} else {
+		return fmt.Errorf("table schema is required for update")
+	}
 
 	// Build full UPDATE query
 	query := fmt.Sprintf(
@@ -701,9 +738,16 @@ func (p *PostgresDriver) UpdateCell(ctx context.Context, schemaName, tableName s
 	)
 
 	// Execute the UPDATE
-	_, err := p.conn.Exec(ctx, query, args...)
+	_, err := p.pool.Exec(ctx, query, args...)
 	if err != nil {
-		return fmt.Errorf("failed to update cell: %w", err)
+		// Format query for better readability in error
+		formattedQuery := fmt.Sprintf("UPDATE %s.%s\nSET %s\nWHERE %s",
+			pgx.Identifier{schemaName}.Sanitize(),
+			pgx.Identifier{tableName}.Sanitize(),
+			setClause,
+			whereClause,
+		)
+		return fmt.Errorf("failed to update cell: %w\nQuery:\n%s\nArgs: %v", err, formattedQuery, args)
 	}
 
 	return nil

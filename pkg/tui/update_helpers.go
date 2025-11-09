@@ -1,5 +1,9 @@
 package tui
 
+import (
+	"github.com/someshkoli/dessertfrog/pkg/driver"
+)
+
 // adjustTableDataScroll adjusts the scroll offset to keep the selected row visible
 func (m Model) adjustTableDataScroll() Model {
 	// Calculate visible rows based on available height
@@ -157,4 +161,19 @@ func (m Model) openRecordViewPopup() Model {
 	m.recordViewScroll = 0
 
 	return m
+}
+
+// getPrimaryKeyNames returns a slice of primary key column names from a table schema
+func getPrimaryKeyNames(schema *driver.TableSchema) []string {
+	if schema == nil {
+		return nil
+	}
+
+	var pkNames []string
+	for _, col := range schema.Columns {
+		if col.IsPrimaryKey {
+			pkNames = append(pkNames, col.Name)
+		}
+	}
+	return pkNames
 }

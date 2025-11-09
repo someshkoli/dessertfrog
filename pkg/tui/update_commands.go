@@ -62,6 +62,24 @@ func fetchTableData(drv driver.Driver, schemaName, tableName string, offset int)
 	}
 }
 
+// fetchTableSchema fetches the full schema for a table (including primary keys)
+func fetchTableSchema(drv driver.Driver, schemaName, tableName string) tea.Cmd {
+	return func() tea.Msg {
+		ctx := context.Background()
+
+		// Fetch full table schema with column details
+		schema, err := drv.GetTableSchema(ctx, schemaName, tableName)
+		if err != nil {
+			// If schema fetch fails, it's not critical - we can still work without PK info
+			return tableSchemaLoadFailedMsg{err: err}
+		}
+
+		return tableSchemaLoadedMsg{
+			schema: schema,
+		}
+	}
+}
+
 // executeSQLQuery executes a custom SQL query
 func executeSQLQuery(drv driver.Driver, query string) tea.Cmd {
 	return func() tea.Msg {
@@ -100,7 +118,7 @@ func updateCellValue(drv driver.Driver, tableSchema *driver.TableSchema, columns
 		oldRow := data[rowIdx]
 
 		// Execute UPDATE
-		err := drv.UpdateCell(ctx, tableSchema.SchemaName, tableSchema.TableName, columns, oldRow, columnName, newValue)
+		err := drv.UpdateCell(ctx, tableSchema, columns, oldRow, columnName, newValue)
 		if err != nil {
 			return cellUpdateFailedMsg{err: err}
 		}

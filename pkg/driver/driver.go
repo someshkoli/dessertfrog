@@ -77,11 +77,12 @@ type Driver interface {
 	ExecuteQuery(ctx context.Context, query string) (columns []string, rows [][]string, error error)
 
 	// UpdateCell updates a single cell in a table
+	// tableSchema: the table schema (includes primary key info, can be nil)
 	// columns: all column names for the table
 	// oldRow: the original row data (used to identify the row in WHERE clause)
 	// columnName: the name of the column to update
 	// newValue: the new value to set (as string)
-	UpdateCell(ctx context.Context, schemaName, tableName string, columns []string, oldRow []string, columnName, newValue string) error
+	UpdateCell(ctx context.Context, tableSchema *TableSchema, columns []string, oldRow []string, columnName, newValue string) error
 }
 
 // ConnectionInfo holds metadata about a database connection

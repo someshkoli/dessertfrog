@@ -82,6 +82,24 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.tableDataError = msg.err.Error()
 		return m, nil
 
+	case tableSchemaLoadedMsg:
+		// Update currentViewTable with full schema (includes primary key info)
+		if m.currentViewTable != nil && msg.schema != nil {
+			// Only update if it's the same table
+			if m.currentViewTable.SchemaName == msg.schema.SchemaName &&
+				m.currentViewTable.TableName == msg.schema.TableName {
+				m.currentViewTable = msg.schema
+				m = m.debugLog("Table schema loaded: %d columns, PK columns: %v",
+					len(msg.schema.Columns), getPrimaryKeyNames(msg.schema))
+			}
+		}
+		return m, nil
+
+	case tableSchemaLoadFailedMsg:
+		// Schema load failed - not critical, log and continue
+		m = m.debugLog("Failed to load table schema: %v", msg.err)
+		return m, nil
+
 	case sqlQueryResultMsg:
 		// SQL query executed successfully
 		m.tableViewMode = true
