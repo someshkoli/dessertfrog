@@ -1,0 +1,105 @@
+package driver
+
+import (
+	"context"
+)
+
+// EntityType represents the type of database entity
+type EntityType string
+
+const (
+	EntityTable            EntityType = "table"
+	EntityView             EntityType = "view"
+	EntityMaterializedView EntityType = "materialized_view"
+	EntityFunction         EntityType = "function"
+	EntityTrigger          EntityType = "trigger"
+)
+
+// ColumnSchema holds detailed information about a table column
+type ColumnSchema struct {
+	Name         string
+	DataType     string // e.g., "varchar", "integer", "timestamp"
+	IsNullable   bool
+	DefaultValue *string // nil if no default
+	MaxLength    *int    // for varchar, char, etc.
+	Precision    *int    // for numeric types
+	Scale        *int    // for numeric types
+	IsPrimaryKey bool
+	IsUnique     bool
+	IsAutoIncr   bool   // auto increment / serial
+	Comment      string // column comment if available
+}
+
+// TableSchema holds detailed schema information about a table or database entity
+type TableSchema struct {
+	EntityType  EntityType
+	SchemaName  string
+	TableName   string // Also used for function name, trigger name, etc.
+	Columns     []ColumnSchema
+	RowCount    int64  // -1 if not available/calculated
+	TableType   string // "BASE TABLE", "VIEW", "MATERIALIZED VIEW", etc.
+	Comment     string // entity comment if available
+	CreateTime  *string
+	UpdateTime  *string
+}
+
+// Driver defines the interface that all database drivers must implement
+type Driver interface {
+	// Connect establishes a connection to the database
+	Connect(ctx context.Context) error
+
+	// Close closes the database connection
+	Close() error
+
+	// Ping verifies the connection to the database is still alive
+	Ping(ctx context.Context) error
+
+	// GetConnectionInfo returns information about the current connection
+	GetConnectionInfo() ConnectionInfo
+
+	// GetTables returns a list of tables with basic info (schema name, table name, column count)
+	GetTables(ctx context.Context) ([]TableSchema, error)
+
+	// GetAllEntities returns all database entities (tables, views, functions, triggers, etc.)
+	GetAllEntities(ctx context.Context) ([]TableSchema, error)
+
+	// GetTableSchema returns detailed schema information for a specific table
+	GetTableSchema(ctx context.Context, schemaName, tableName string) (*TableSchema, error)
+
+	// GetTableData fetches the actual data from a table/view
+	// Returns column names and rows of data (as strings for display)
+	// limit: maximum number of rows to fetch (e.g., 100)
+	// offset: number of rows to skip (for pagination)
+	GetTableData(ctx context.Context, schemaName, tableName string, limit, offset int) (columns []string, rows [][]string, error error)
+
+	// ExecuteQuery executes a custom SQL query and returns the results
+	// Returns column names and rows of data (as strings for display)
+	ExecuteQuery(ctx context.Context, query string) (columns []string, rows [][]string, error error)
+
+	// UpdateCell updates a single cell in a table
+	// columns: all column names for the table
+	// oldRow: the original row data (used to identify the row in WHERE clause)
+	// columnName: the name of the column to update
+	// newValue: the new value to set (as string)
+	UpdateCell(ctx context.Context, schemaName, tableName string, columns []string, oldRow []string, columnName, newValue string) error
+}
+
+// ConnectionInfo holds metadata about a database connection
+type ConnectionInfo struct {
+	Host     string
+	Port     int
+	Database string
+	User     string
+	Driver   string
+}
+
+// Config represents common configuration for database drivers
+type Config struct {
+	Host     string
+	Port     int
+	Database string
+	Schema   string
+	User     string
+	Password string
+	SSLMode  string
+}
