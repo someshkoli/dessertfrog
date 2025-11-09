@@ -123,15 +123,30 @@ The debug overlay displays:
 
 dessertfrog supports configuration through a YAML file. By default, the application looks for a config file at `~/.config/dessertfrog/config.yaml`. If the file doesn't exist, built-in defaults are used.
 
-### Configuration File
+### Generating a Configuration File
 
-You can specify a custom config file location:
+You can generate a configuration file with all default key bindings using the built-in command:
+
+```bash
+# Generate config at default location (~/.config/dessertfrog/config.yaml)
+dessertfrog generate-config
+
+# Generate config at a custom location
+dessertfrog generate-config --output /path/to/config.yaml
+
+# Overwrite existing config file
+dessertfrog generate-config --force
+```
+
+### Using a Custom Configuration File
+
+You can specify a custom config file location when starting the application:
 
 ```bash
 dessertfrog --config-file /path/to/config.yaml --driver postgres ...
 ```
 
-A sample configuration file is provided in the repository as `config.yaml.sample`. Copy it to get started:
+Alternatively, you can manually copy the sample configuration file from the repository:
 
 ```bash
 mkdir -p ~/.config/dessertfrog

@@ -1,179 +1,238 @@
-# dessertfrog configuration file
-#
-# This is a sample configuration file showing all available options.
-# Copy this file to ~/.config/dessertfrog/config.yaml to customize your setup.
-#
-# You can also specify a custom config file location with:
-#   dessertfrog --config-file /path/to/config.yaml
-
-# Key bindings configuration
-# Format: key combination mapped to command name
-#
-# Available commands:
-#   Navigation: navigate_up, navigate_down, navigate_left, navigate_right
-#               page_up, page_down, go_to_top, go_to_bottom
-#               history_back, history_forward
-#   Actions: confirm, cancel, quit, back
-#   View: open_table, open_search, open_sql_query, open_command_mode, inline_search
-#   Table: next_page, previous_page, edit_cell, copy_cell_value, copy_row
-#          open_cell_popup, open_record_view, filter_content
-#   Debug: toggle_debug, clear_debug_logs, toggle_debug_focus
-#   Popup: toggle_json_node, switch_debug_section
-#
-# Key format examples:
-#   - Single keys: "j", "k", "g", "G", "enter", "esc", "tab"
-#   - Arrow keys: "up", "down", "left", "right"
-#   - Ctrl combinations: "ctrl+h", "ctrl+l", "ctrl+d", "ctrl+u", "ctrl+p"
-#   - Alt combinations: "alt+left", "alt+right"
-#   - Function keys: "f1", "f2", "f12"
-
 keybindings:
-  # Global key bindings (work in all modes)
-  global:
-    - key: "f12"
-      command: "toggle_debug"
-    - key: "f11"
-      command: "clear_debug_logs"
-    - key: "f10"
-      command: "toggle_debug_focus"
-    - key: "ctrl+c"
-      command: "quit"
-
-  # Normal mode (table list view)
-  normal:
-    # Navigation
-    - key: "j"
-      command: "navigate_down"
-    - key: "down"
-      command: "navigate_down"
-    - key: "k"
-      command: "navigate_up"
-    - key: "up"
-      command: "navigate_up"
-    - key: "g"
-      command: "go_to_top"
-    - key: "G"
-      command: "go_to_bottom"
-    - key: "ctrl+d"
-      command: "page_down"
-    - key: "ctrl+u"
-      command: "page_up"
-    - key: "ctrl+h"
-      command: "history_back"
-    - key: "ctrl+l"
-      command: "history_forward"
-
-    # Actions
-    - key: "enter"
-      command: "open_table"
-    - key: "ctrl+p"
-      command: "open_search"
-    - key: "s"
-      command: "open_sql_query"
-    - key: ":"
-      command: "open_command_mode"
-    - key: "/"
-      command: "inline_search"
-    - key: "q"
-      command: "quit"
-
-  # Table view mode
-  table_view:
-    # Navigation
-    - key: "j"
-      command: "navigate_down"
-    - key: "down"
-      command: "navigate_down"
-    - key: "k"
-      command: "navigate_up"
-    - key: "up"
-      command: "navigate_up"
-    - key: "h"
-      command: "navigate_left"
-    - key: "left"
-      command: "navigate_left"
-    - key: "l"
-      command: "navigate_right"
-    - key: "right"
-      command: "navigate_right"
-    - key: "g"
-      command: "go_to_top"
-    - key: "G"
-      command: "go_to_bottom"
-    - key: "ctrl+d"
-      command: "page_down"
-    - key: "ctrl+u"
-      command: "page_up"
-    - key: "ctrl+h"
-      command: "history_back"
-    - key: "ctrl+l"
-      command: "history_forward"
-
-  # Search popup mode
-  search:
-    - key: "enter"
-      command: "confirm"
-    - key: "esc"
-      command: "cancel"
-    - key: "up"
-      command: "navigate_up"
-    - key: "down"
-      command: "navigate_down"
-
-  # Cell popup mode
-  cell_popup:
-    - key: "esc"
-      command: "cancel"
-    - key: "q"
-      command: "cancel"
-    - key: "j"
-      command: "navigate_down"
-    - key: "k"
-      command: "navigate_up"
-    - key: "enter"
-      command: "toggle_json_node"
-
-  # Record view popup mode
-  record_view:
-    - key: "esc"
-      command: "cancel"
-    - key: "q"
-      command: "cancel"
-    - key: "j"
-      command: "navigate_down"
-    - key: "k"
-      command: "navigate_up"
-    - key: "v"
-      command: "open_cell_popup"
-
-  # Debug panel mode
-  debug_panel:
-    - key: "j"
-      command: "navigate_down"
-    - key: "k"
-      command: "navigate_up"
-    - key: "tab"
-      command: "switch_debug_section"
-    - key: "enter"
-      command: "confirm"
-    - key: "esc"
-      command: "cancel"
-    - key: "g"
-      command: "go_to_top"
-    - key: "G"
-      command: "go_to_bottom"
-
-# Example: Override history navigation to use Alt+Arrow keys instead of Ctrl+H/L
-# Uncomment these lines to use Alt+Left/Right for history navigation:
-#
-# keybindings:
-#   normal:
-#     - key: "alt+left"
-#       command: "history_back"
-#     - key: "alt+right"
-#       command: "history_forward"
-#   table_view:
-#     - key: "alt+left"
-#       command: "history_back"
-#     - key: "alt+right"
-#       command: "history_forward"
+    global:
+        - key: f12
+          command: toggle_debug
+        - key: f11
+          command: clear_debug_logs
+        - key: f10
+          command: toggle_debug_focus
+        - key: ctrl+c
+          command: quit
+    normal:
+        - key: j
+          command: navigate_down
+        - key: down
+          command: navigate_down
+        - key: k
+          command: navigate_up
+        - key: up
+          command: navigate_up
+        - key: g
+          command: go_to_top
+        - key: G
+          command: go_to_bottom
+        - key: ctrl+d
+          command: page_down
+        - key: ctrl+u
+          command: page_up
+        - key: ctrl+h
+          command: history_back
+        - key: ctrl+l
+          command: history_forward
+        - key: enter
+          command: open_table
+        - key: ctrl+p
+          command: open_search
+        - key: s
+          command: open_sql_query
+        - key: ':'
+          command: open_command_mode
+        - key: /
+          command: inline_search
+        - key: q
+          command: quit
+    table_view:
+        - key: j
+          command: navigate_down
+        - key: down
+          command: navigate_down
+        - key: k
+          command: navigate_up
+        - key: up
+          command: navigate_up
+        - key: h
+          command: navigate_left
+        - key: left
+          command: navigate_left
+        - key: l
+          command: navigate_right
+        - key: right
+          command: navigate_right
+        - key: w
+          command: navigate_word_forward
+        - key: b
+          command: navigate_word_backward
+        - key: g
+          command: go_to_top
+        - key: G
+          command: go_to_bottom
+        - key: ctrl+d
+          command: page_down
+        - key: ctrl+u
+          command: page_up
+        - key: ctrl+h
+          command: history_back
+        - key: ctrl+l
+          command: history_forward
+        - key: "n"
+          command: next_page
+        - key: p
+          command: previous_page
+        - key: i
+          command: edit_cell
+        - key: "y"
+          command: copy_cell_value
+        - key: "Y"
+          command: copy_row
+        - key: enter
+          command: open_cell_popup
+        - key: v
+          command: open_cell_popup
+        - key: r
+          command: open_record_view
+        - key: V
+          command: open_record_view
+        - key: /
+          command: filter_content
+        - key: ctrl+p
+          command: open_search
+        - key: s
+          command: open_sql_query
+        - key: esc
+          command: back
+        - key: q
+          command: back
+    search:
+        - key: enter
+          command: confirm
+        - key: esc
+          command: cancel
+        - key: up
+          command: navigate_up
+        - key: down
+          command: navigate_down
+        - key: ctrl+n
+          command: navigate_down
+        - key: ctrl+p
+          command: navigate_up
+    inline_search:
+        - key: enter
+          command: confirm
+        - key: esc
+          command: cancel
+    command_mode:
+        - key: enter
+          command: confirm
+        - key: esc
+          command: cancel
+    cell_edit:
+        - key: esc
+          command: cancel
+        - key: enter
+          command: insert_newline
+        - key: left
+          command: cursor_left
+        - key: right
+          command: cursor_right
+        - key: home
+          command: cursor_home
+        - key: ctrl+a
+          command: cursor_home
+        - key: end
+          command: cursor_end
+        - key: ctrl+e
+          command: cursor_end
+        - key: backspace
+          command: backspace
+        - key: delete
+          command: delete_char
+    sql_query:
+        - key: enter
+          command: confirm
+        - key: esc
+          command: cancel
+        - key: left
+          command: cursor_left
+        - key: right
+          command: cursor_right
+        - key: home
+          command: cursor_home
+        - key: ctrl+a
+          command: cursor_home
+        - key: end
+          command: cursor_end
+        - key: ctrl+e
+          command: cursor_end
+        - key: backspace
+          command: backspace
+        - key: delete
+          command: delete_char
+    cell_popup:
+        - key: esc
+          command: cancel
+        - key: q
+          command: cancel
+        - key: v
+          command: cancel
+        - key: j
+          command: navigate_down
+        - key: k
+          command: navigate_up
+        - key: down
+          command: navigate_down
+        - key: up
+          command: navigate_up
+        - key: h
+          command: navigate_left
+        - key: left
+          command: navigate_left
+        - key: l
+          command: navigate_right
+        - key: right
+          command: navigate_right
+        - key: enter
+          command: toggle_json_node
+        - key: g
+          command: go_to_top
+        - key: G
+          command: go_to_bottom
+    record_view:
+        - key: esc
+          command: cancel
+        - key: q
+          command: cancel
+        - key: V
+          command: cancel
+        - key: j
+          command: navigate_down
+        - key: k
+          command: navigate_up
+        - key: down
+          command: navigate_down
+        - key: up
+          command: navigate_up
+        - key: v
+          command: open_cell_popup
+        - key: g
+          command: go_to_top
+        - key: G
+          command: go_to_bottom
+    debug_panel:
+        - key: j
+          command: navigate_down
+        - key: k
+          command: navigate_up
+        - key: down
+          command: navigate_down
+        - key: up
+          command: navigate_up
+        - key: tab
+          command: switch_debug_section
+        - key: enter
+          command: confirm
+        - key: esc
+          command: cancel
+        - key: g
+          command: go_to_top
+        - key: G
+          command: go_to_bottom

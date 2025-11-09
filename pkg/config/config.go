@@ -53,6 +53,7 @@ func LoadConfig(path string) (*Config, error) {
 
 	// If file doesn't exist, return empty config (use defaults)
 	if _, err := os.Stat(path); os.IsNotExist(err) {
+		fmt.Println("sk file not foundn", path)
 		return &Config{}, nil
 	}
 
@@ -80,7 +81,7 @@ func SaveConfig(path string, cfg *Config) error {
 
 	// Ensure directory exists
 	dir := filepath.Dir(path)
-	if err := os.MkdirAll(dir, 0755); err != nil {
+	if err := os.MkdirAll(dir, 0o755); err != nil {
 		return fmt.Errorf("failed to create config directory: %w", err)
 	}
 
@@ -91,7 +92,7 @@ func SaveConfig(path string, cfg *Config) error {
 	}
 
 	// Write to file
-	if err := os.WriteFile(path, data, 0644); err != nil {
+	if err := os.WriteFile(path, data, 0o644); err != nil {
 		return fmt.Errorf("failed to write config file: %w", err)
 	}
 
