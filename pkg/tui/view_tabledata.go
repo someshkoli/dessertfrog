@@ -163,7 +163,7 @@ func (m Model) renderTableDataView() string {
 	}
 
 	// Add scroll indicators and pagination info
-	currentPage := (m.tableDataOffset / 100) + 1
+	currentPage := (m.tableDataOffset / 500) + 1
 	rowStart := m.tableDataOffset + startRow + 1
 	rowEnd := m.tableDataOffset + endRow
 
@@ -173,7 +173,7 @@ func (m Model) renderTableDataView() string {
 	if m.tableDataOffset > 0 {
 		scrollInfo += " | p: prev page"
 	}
-	if len(m.tableData) == 100 {
+	if len(m.tableData) == 500 {
 		scrollInfo += " | n: next page"
 	}
 
@@ -216,6 +216,14 @@ func (m Model) renderTableDataTitle() string {
 			Foreground(lipgloss.Color("120")).
 			Bold(true)
 		title += "  " + clipboardStyle.Render(m.clipboardMessage)
+	}
+
+	// Add filter indicator if active
+	if m.tableContentFilter != "" {
+		filterStyle := lipgloss.NewStyle().
+			Foreground(lipgloss.Color("226")).
+			Bold(true)
+		title += "  " + filterStyle.Render(fmt.Sprintf("[Filter: %s]", m.tableContentFilter))
 	}
 
 	return titleStyle.Render(title)

@@ -86,9 +86,11 @@ type Model struct {
 	tableDataScrollY   int                  // Vertical scroll position (for viewport)
 	selectedDataRow    int                  // Currently selected row in table data view
 	selectedDataCol    int                  // Currently selected column in table data view
-	tableDataOffset    int                  // Current offset for pagination (0, 100, 200, etc.)
+	tableDataOffset    int                  // Current offset for pagination (0, 500, 1000, etc.)
 	tableDataLoading   bool                 // Whether table data is loading
 	tableDataError     string               // Error loading table data
+	tableContentFilter string               // Content search filter
+	allTableData       [][]string           // Unfiltered table data (backup for filtering)
 	// Cell value popup
 	cellValuePopupMode    bool     // Whether cell value popup is active
 	cellValuePopupContent string   // The cell value to display

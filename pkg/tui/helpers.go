@@ -136,3 +136,26 @@ func getAutocompleteSuggestion(query string) string {
 
 	return ""
 }
+
+// filterTableData filters table rows based on fuzzy search query
+// Searches across all columns in each row
+func filterTableData(rows [][]string, query string) [][]string {
+	if query == "" {
+		return rows
+	}
+
+	var filtered [][]string
+	queryLower := strings.ToLower(query)
+
+	for _, row := range rows {
+		// Check if any cell in the row matches the query
+		for _, cell := range row {
+			if fuzzyMatch(queryLower, cell) {
+				filtered = append(filtered, row)
+				break // Move to next row once we find a match
+			}
+		}
+	}
+
+	return filtered
+}

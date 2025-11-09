@@ -96,8 +96,8 @@ func fetchTableData(drv driver.Driver, schemaName, tableName string, offset int)
 	return func() tea.Msg {
 		ctx := context.Background()
 
-		// Fetch table data with limit of 100 rows and given offset
-		columns, rows, err := drv.GetTableData(ctx, schemaName, tableName, 100, offset)
+		// Fetch table data with limit of 500 rows and given offset
+		columns, rows, err := drv.GetTableData(ctx, schemaName, tableName, 500, offset)
 		if err != nil {
 			return tableDataLoadFailedMsg{err: err}
 		}
@@ -198,7 +198,9 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.tableDataLoading = false
 		m.tableColumns = msg.columns
 		m.tableData = msg.rows
+		m.allTableData = msg.rows // Store unfiltered data
 		m.tableDataError = ""
+		m.tableContentFilter = "" // Clear filter on new data load
 		// Reset scroll and selection when new data is loaded
 		m.tableDataScrollX = 0
 		m.tableDataScrollY = 0
@@ -220,6 +222,8 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.currentViewTable = nil
 		m.tableColumns = msg.columns
 		m.tableData = msg.rows
+		m.allTableData = msg.rows // Store unfiltered data
+		m.tableContentFilter = "" // Clear filter
 		m.tableDataLoading = false
 		m.tableDataError = ""
 		m.tableDataScrollX = 0
@@ -453,9 +457,20 @@ func (m Model) handleCommandModeKeys(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 
 // handleInlineSearchModeKeys handles keyboard input in inline search mode
 func (m Model) handleInlineSearchModeKeys(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
+	// Check if we're in table view mode (content filtering) or normal mode (table filtering)
+	inTableView := m.tableViewMode
+
 	switch msg.String() {
 	case "enter":
-		// Open table view for selected table
+		if inTableView {
+			// Save the filter and close search mode (filter already applied in real-time)
+			m.tableContentFilter = m.inlineSearchQuery
+			m.inlineSearchMode = false
+			m.inlineSearchQuery = ""
+			return m, nil
+		}
+
+		// Open table view for selected table (normal mode)
 		displayTables := m.tables
 		if m.inlineSearchQuery != "" {
 			displayTables = filterTables(m.tables, m.inlineSearchQuery)
@@ -486,8 +501,10 @@ func (m Model) handleInlineSearchModeKeys(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		m.inlineSearchMode = false
 		m.inlineSearchQuery = ""
 		m.inlineSearchSuggestion = ""
-		m.selectedRow = 0
-		m.scrollOffset = 0
+		if !inTableView {
+			m.selectedRow = 0
+			m.scrollOffset = 0
+		}
 
 	case "tab":
 		// Accept autocomplete suggestion
@@ -500,8 +517,16 @@ func (m Model) handleInlineSearchModeKeys(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		if len(m.inlineSearchQuery) > 0 {
 			m.inlineSearchQuery = m.inlineSearchQuery[:len(m.inlineSearchQuery)-1]
 			m.inlineSearchSuggestion = getAutocompleteSuggestion(m.inlineSearchQuery)
-			m.selectedRow = 0
-			m.scrollOffset = 0
+
+			if inTableView {
+				// Apply filter in real-time as user types (removes characters)
+				m.tableData = filterTableData(m.allTableData, m.inlineSearchQuery)
+				m.selectedDataRow = 0
+				m.tableDataScrollY = 0
+			} else {
+				m.selectedRow = 0
+				m.scrollOffset = 0
+			}
 		}
 
 	case "down":
@@ -528,8 +553,16 @@ func (m Model) handleInlineSearchModeKeys(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		if len(msg.String()) == 1 {
 			m.inlineSearchQuery += msg.String()
 			m.inlineSearchSuggestion = getAutocompleteSuggestion(m.inlineSearchQuery)
-			m.selectedRow = 0
-			m.scrollOffset = 0
+
+			if inTableView {
+				// Apply filter in real-time as user types
+				m.tableData = filterTableData(m.allTableData, m.inlineSearchQuery)
+				m.selectedDataRow = 0
+				m.tableDataScrollY = 0
+			} else {
+				m.selectedRow = 0
+				m.scrollOffset = 0
+			}
 		}
 	}
 
@@ -624,18 +657,28 @@ func (m Model) handleNormalModeKeys(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 func (m Model) handleTableViewModeKeys(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	switch msg.String() {
 	case "esc":
-		// Exit table view mode
-		m.tableViewMode = false
-		m.currentViewTable = nil
-		m.tableColumns = nil
-		m.tableData = nil
-		m.tableDataScrollX = 0
-		m.tableDataScrollY = 0
-		m.selectedDataRow = 0
-		m.selectedDataCol = 0
-		m.tableDataOffset = 0
-		m.isCustomQuery = false
-		m.executedSQLQuery = ""
+		// Clear content filter if active, otherwise exit table view mode
+		if m.tableContentFilter != "" {
+			m.tableContentFilter = ""
+			m.tableData = m.allTableData // Restore unfiltered data
+			m.selectedDataRow = 0
+			m.tableDataScrollY = 0
+		} else {
+			// Exit table view mode
+			m.tableViewMode = false
+			m.currentViewTable = nil
+			m.tableColumns = nil
+			m.tableData = nil
+			m.allTableData = nil
+			m.tableDataScrollX = 0
+			m.tableDataScrollY = 0
+			m.selectedDataRow = 0
+			m.selectedDataCol = 0
+			m.tableDataOffset = 0
+			m.isCustomQuery = false
+			m.executedSQLQuery = ""
+			m.tableContentFilter = ""
+		}
 
 	case "q":
 		// Quit application
@@ -650,7 +693,7 @@ func (m Model) handleTableViewModeKeys(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 			m.sqlQueryCursor = len([]rune(m.sqlQueryInput))
 		} else if m.currentViewTable != nil {
 			// For regular tables, generate the SELECT query
-			query := fmt.Sprintf("SELECT * FROM \"%s\".\"%s\" LIMIT 100 OFFSET %d",
+			query := fmt.Sprintf("SELECT * FROM \"%s\".\"%s\" LIMIT 500 OFFSET %d",
 				m.currentViewTable.SchemaName,
 				m.currentViewTable.TableName,
 				m.tableDataOffset)
@@ -663,6 +706,12 @@ func (m Model) handleTableViewModeKeys(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 			m.sqlQueryInput = ""
 			m.sqlQueryCursor = 0
 		}
+
+	case "/":
+		// Open content filter input
+		// Switch to a special mode for typing the filter
+		m.inlineSearchMode = true
+		m.inlineSearchQuery = m.tableContentFilter
 
 	case "ctrl+c":
 		return m, tea.Quit
@@ -680,19 +729,19 @@ func (m Model) handleTableViewModeKeys(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		m.searchSelected = 0
 
 	case "n":
-		// Next page - load next 100 rows
-		if m.currentViewTable != nil && len(m.tableData) == 100 {
+		// Next page - load next 500 rows
+		if m.currentViewTable != nil && len(m.tableData) == 500 {
 			// Only paginate if we have a full page (meaning there might be more data)
-			m.tableDataOffset += 100
+			m.tableDataOffset += 500
 			m.tableDataLoading = true
 			return m, fetchTableData(m.driver, m.currentViewTable.SchemaName, m.currentViewTable.TableName, m.tableDataOffset)
 		}
 
 	case "p":
-		// Previous page - load previous 100 rows
+		// Previous page - load previous 500 rows
 		if m.currentViewTable != nil && m.tableDataOffset > 0 {
 			// Only go back if we're not at the first page
-			m.tableDataOffset -= 100
+			m.tableDataOffset -= 500
 			if m.tableDataOffset < 0 {
 				m.tableDataOffset = 0
 			}

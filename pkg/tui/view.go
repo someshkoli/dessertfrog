@@ -18,8 +18,14 @@ func (m Model) View() string {
 		tableDataView := m.renderTableDataView()
 		content += tableDataView + "\n"
 
-		// SQL query input or help text for table view
-		if m.sqlQueryMode {
+		// Inline search bar for content filtering
+		if m.inlineSearchMode {
+			content += "\n"
+			searchBar := m.renderInlineSearchBar()
+			content += searchBar + "\n"
+			help := helpStyle.Render("Enter: apply filter | Esc: cancel")
+			content += help
+		} else if m.sqlQueryMode {
 			content += "\n" // Add spacing before SQL input
 			sqlPrompt := "SQL Query: "
 			// Insert cursor at the correct position (using runes for UTF-8)
@@ -42,9 +48,9 @@ func (m Model) View() string {
 			// Show help text with 's' to view/edit query
 			var helpText string
 			if m.isCustomQuery {
-				helpText = "i: edit | v: view | V: record | y: copy | Y: row | w/b: cell | hjkl: move | s: query | q: quit | o: back"
+				helpText = "i: edit | v: view | V: record | y: copy | Y: row | /: filter | hjkl: move | s: query | q: quit | o: back"
 			} else {
-				helpText = "i: edit | v: view | V: record | y: copy | Y: row | w/b: cell | hjkl: move | n/p: page | s: query | q: quit | o: back"
+				helpText = "i: edit | v: view | V: record | y: copy | Y: row | /: filter | hjkl: move | n/p: page | s: query | q: quit"
 			}
 			help := helpStyle.Render(helpText)
 			content += help
