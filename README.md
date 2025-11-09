@@ -13,6 +13,8 @@ A terminal UI database browser for SQL style datastores.
 - JSON viewer with expandable/collapsible tree structure
 - Copy values to clipboard
 - Navigate between tables and maintain history
+- Customizable key bindings via configuration file
+- Debug mode with real-time logging
 
 ## Installation
 
@@ -38,6 +40,7 @@ dessertfrog --driver postgres --host localhost --port 5432 --username postgres -
 
 | Flag | Short | Default | Description |
 |------|-------|---------|-------------|
+| `--config-file` | `-c` | `~/.config/dessertfrog/config.yaml` | Path to configuration file |
 | `--driver` | `-d` | `postgres` | Database driver (postgres, mariadb) |
 | `--host` | | `localhost` | Database host |
 | `--port` | `-p` | 5432/3306 | Database port (depends on driver) |
@@ -48,31 +51,150 @@ dessertfrog --driver postgres --host localhost --port 5432 --username postgres -
 
 ### Keyboard Shortcuts
 
-#### Table List View - `↑/↓` or `k/j` - Navigate tables
+#### Table List View
+- `↑/↓` or `k/j` - Navigate tables
+- `Ctrl+D` - Page down (jump down by half viewport)
+- `Ctrl+U` - Page up (jump up by half viewport)
+- `g/G` - Jump to first/last table
 - `Enter` - View table data
-- `/` - Open search popup
-- `Ctrl+F` - Inline search
-- `s` - OpenSQL query editor
+- `/` - Inline search
+- `Ctrl+P` - Open search popup (search all entities)
+- `Ctrl+H` - Navigate back in history
+- `Ctrl+L` - Navigate forward in history
+- `s` - Open SQL query editor
 - `q` - Quit
 
 #### Table Data View
 - `↑/↓/←/→` or `h/j/k/l` - Navigate cells
+- `Ctrl+D` - Page down (jump down by half viewport)
+- `Ctrl+U` - Page up (jump up by half viewport)
+- `g/G` - Jump to first/last row
+- `w/b` - Jump forward/backward between cells
 - `v` - View cell value (opens popup for large values)
 - `V` - View record (opens popup for entire row)
+- `i` - Edit cell value
 - `y` - Copy cell value to clipboard
 - `Y` - Copy record (entire row) to clipboard
-- `w/b` - Jump forward/backward between cells
-- `i` - Edit cell value
-- `Esc` - Return to table list
+- `n/p` - Next/previous page (500 rows)
 - `/` - Search within table data
-- `n/p` - Next/previous page
-- `s` - OpenSQL query editor
+- `Ctrl+P` - Open search popup to switch tables
+- `Ctrl+H` - Navigate back in history
+- `Ctrl+L` - Navigate forward in history
+- `s` - Open SQL query editor
+- `Esc` - Clear filter or return to table list
+- `q` - Quit
 
-#### Cell/Record Popup
+#### Cell Value Popup
 - `↑/↓` or `k/j` - Scroll (or navigate JSON tree)
-- `Space` or `Enter` - Toggle JSON node expansion
-- `y` - Copy value to clipboard
-- `Esc` - Close popup
+- `g/G` - Jump to first/last item
+- `h/l` or `←/→` - Collapse/expand JSON node
+- `Enter` - Toggle JSON node expansion
+- `Esc` or `q` - Close popup
+
+#### Record View Popup
+- `↑/↓` or `k/j` - Navigate through fields
+- `g/G` - Jump to first/last field
+- `v` - View selected field value (opens cell popup)
+- `Esc` or `q` - Close popup
+
+#### Debug Mode
+- `F12` - Toggle debug overlay
+- `F11` - Clear debug logs (when debug mode is active)
+- `F10` - Focus/unfocus debug panel (enables navigation)
+
+When debug panel is focused:
+- `Tab` - Switch between App State and Debug Logs sections
+- `j/k` or `↑/↓` - Navigate through log entries
+- `g/G` - Jump to first/last log entry
+- `Enter` or `Space` - Open detail popup for selected item
+- `Esc` - Unfocus debug panel
+
+The debug overlay displays:
+- Connection information
+- Current view state and mode flags
+- Table/data statistics
+- Navigation history info
+- Window dimensions
+- Real-time debug logs with timestamps
+- Visual selection highlighting when focused
+- Expandable detail view for any log entry or full app state
+
+## Configuration
+
+dessertfrog supports configuration through a YAML file. By default, the application looks for a config file at `~/.config/dessertfrog/config.yaml`. If the file doesn't exist, built-in defaults are used.
+
+### Configuration File
+
+You can specify a custom config file location:
+
+```bash
+dessertfrog --config-file /path/to/config.yaml --driver postgres ...
+```
+
+A sample configuration file is provided in the repository as `config.yaml.sample`. Copy it to get started:
+
+```bash
+mkdir -p ~/.config/dessertfrog
+cp config.yaml.sample ~/.config/dessertfrog/config.yaml
+```
+
+### Key Binding Customization
+
+The configuration file allows you to customize key bindings without modifying the code. Key bindings defined in the config file override the default bindings.
+
+Example configuration structure:
+
+```yaml
+keybindings:
+  # Global bindings (work in all modes)
+  global:
+    - key: "f12"
+      command: "toggle_debug"
+    - key: "ctrl+c"
+      command: "quit"
+
+  # Normal mode (table list view)
+  normal:
+    - key: "j"
+      command: "navigate_down"
+    - key: "ctrl+h"
+      command: "history_back"
+
+  # Table view mode
+  table_view:
+    - key: "ctrl+d"
+      command: "page_down"
+    - key: "ctrl+u"
+      command: "page_up"
+```
+
+**Available Commands:**
+- Navigation: `navigate_up`, `navigate_down`, `navigate_left`, `navigate_right`, `page_up`, `page_down`, `go_to_top`, `go_to_bottom`, `history_back`, `history_forward`
+- Actions: `confirm`, `cancel`, `quit`, `back`
+- View: `open_table`, `open_search`, `open_sql_query`, `open_command_mode`, `inline_search`
+- Table: `next_page`, `previous_page`, `edit_cell`, `copy_cell_value`, `copy_row`, `open_cell_popup`, `open_record_view`, `filter_content`
+- Debug: `toggle_debug`, `clear_debug_logs`, `toggle_debug_focus`
+- Popup: `toggle_json_node`, `switch_debug_section`
+
+**Key Format Examples:**
+- Single keys: `"j"`, `"k"`, `"g"`, `"G"`, `"enter"`, `"esc"`, `"tab"`
+- Arrow keys: `"up"`, `"down"`, `"left"`, `"right"`
+- Ctrl combinations: `"ctrl+h"`, `"ctrl+l"`, `"ctrl+d"`, `"ctrl+p"`
+- Alt combinations: `"alt+left"`, `"alt+right"`
+- Function keys: `"f1"`, `"f12"`
+
+**Binding Modes:**
+- `global` - Work in any mode
+- `normal` - Table list view
+- `table_view` - Table data view
+- `search` - Search popup
+- `inline_search` - Inline search mode
+- `command_mode` - Command input
+- `cell_edit` - Cell editing
+- `sql_query` - SQL query input
+- `cell_popup` - Cell value popup
+- `record_view` - Record view popup
+- `debug_panel` - Debug panel
 
 ## Supported Databases
 

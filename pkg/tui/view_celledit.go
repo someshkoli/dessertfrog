@@ -26,8 +26,11 @@ func (m Model) renderCellEditPopup(mainView string) string {
 	// Build popup content
 	var content string
 
-	// Title
+	// Title with buffer count indicator
 	title := fmt.Sprintf("Edit Cell: %s", columnName)
+	if m.cellEditBufferCount > 0 {
+		title += fmt.Sprintf("  [%d pending]", m.cellEditBufferCount)
+	}
 	content += titleStyle.Render(title) + "\n\n"
 
 	// Editable input with cursor
@@ -63,9 +66,13 @@ func (m Model) renderCellEditPopup(mainView string) string {
 	if m.cellEditCommandMode {
 		cmdText := commandLineStyle.Render(m.cellEditCommand + "█")
 		content += cmdText + "\n"
-		content += helpStyle.Render("Enter: execute | Esc: cancel")
+		if m.cellEditBufferCount > 0 {
+			content += helpStyle.Render("Enter: execute | Esc: cancel | :w saves all pending edits")
+		} else {
+			content += helpStyle.Render("Enter: execute | Esc: cancel")
+		}
 	} else {
-		content += helpStyle.Render("Type to edit  :w save  Esc cancel")
+		content += helpStyle.Render("Enter: save to buffer  Ctrl+Enter: newline  :w commit all  Esc: cancel")
 	}
 
 	// Create popup box - don't set fixed width or height, let content determine it

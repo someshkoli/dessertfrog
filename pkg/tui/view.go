@@ -25,6 +25,12 @@ func (m Model) View() string {
 			content += searchBar + "\n"
 			help := helpStyle.Render("Enter: apply filter | Esc: cancel")
 			content += help
+		} else if m.commandMode {
+			content += "\n"
+			cmdLine := commandLineStyle.Render(m.commandBuffer + "█")
+			content += cmdLine + "\n"
+			help := helpStyle.Render("Enter: execute | Esc: cancel")
+			content += help
 		} else if m.sqlQueryMode {
 			content += "\n" // Add spacing before SQL input
 			sqlPrompt := "SQL Query: "
@@ -47,10 +53,19 @@ func (m Model) View() string {
 		} else {
 			// Show help text with 's' to view/edit query
 			var helpText string
-			if m.isCustomQuery {
-				helpText = "i: edit | v: view | V: record | y: copy | Y: row | /: filter | hjkl: move | s: query | q: quit | o: back"
+			if m.cellEditBufferCount > 0 {
+				// Show :w hint when there are pending edits
+				if m.isCustomQuery {
+					helpText = "i: edit | :w: save all | v: view | y: copy | Y: row | /: filter | hjkl: move | s: query | q: quit | o: back"
+				} else {
+					helpText = "i: edit | :w: save all | v: view | y: copy | Y: row | /: filter | hjkl: move | n/p: page | s: query | q: quit"
+				}
 			} else {
-				helpText = "i: edit | v: view | V: record | y: copy | Y: row | /: filter | hjkl: move | n/p: page | s: query | q: quit"
+				if m.isCustomQuery {
+					helpText = "i: edit | v: view | V: record | y: copy | Y: row | /: filter | hjkl: move | s: query | q: quit | o: back"
+				} else {
+					helpText = "i: edit | v: view | V: record | y: copy | Y: row | /: filter | hjkl: move | n/p: page | s: query | q: quit"
+				}
 			}
 			help := helpStyle.Render(helpText)
 			content += help
@@ -146,7 +161,18 @@ func (m Model) View() string {
 
 	// Render cell value popup overlay if active (on top of record view if both active)
 	if m.cellValuePopupMode {
-		return m.renderCellValuePopup(mainView)
+		mainView = m.renderCellValuePopup(mainView)
+	}
+
+	// Render debug overlay if active (always on top)
+	if m.debugMode {
+		debugOverlay := m.renderDebugOverlay()
+		mainView = mainView + "\n\n" + debugOverlay
+	}
+
+	// Render debug detail popup if active (highest priority)
+	if m.debugDetailMode {
+		return m.renderDebugDetailPopup()
 	}
 
 	return mainView

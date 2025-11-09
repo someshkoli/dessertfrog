@@ -152,9 +152,21 @@ func (m Model) renderTableDataView() string {
 				cellText = fmt.Sprintf("%-*s │ ", columnWidths[colIdx], "")
 			}
 
+			// Check if this cell has pending edits
+			bufferKey := fmt.Sprintf("%d:%d", rowIdx, colIdx)
+			hasPendingEdit := false
+			if _, exists := m.cellEditBuffer[bufferKey]; exists {
+				hasPendingEdit = true
+			}
+
 			// Highlight selected cell
 			if rowIdx == m.selectedDataRow && colIdx == m.selectedDataCol {
 				cellText = selectedRowStyle.Render(cellText)
+			} else if hasPendingEdit {
+				// Show pending edit indicator (yellow/warning color)
+				cellText = lipgloss.NewStyle().
+					Foreground(lipgloss.Color("220")).
+					Render(cellText)
 			}
 
 			content.WriteString(cellText)

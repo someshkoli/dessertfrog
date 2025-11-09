@@ -8,6 +8,7 @@ import (
 	"os"
 
 	tea "github.com/charmbracelet/bubbletea"
+	"github.com/someshkoli/dessertfrog/pkg/config"
 	"github.com/someshkoli/dessertfrog/pkg/tui"
 	"github.com/spf13/cobra"
 )
@@ -21,6 +22,7 @@ var (
 	dbPassword string
 	dbName     string
 	dbSchema   string
+	configFile string
 )
 
 // rootCmd represents the base command when called without any subcommands
@@ -80,8 +82,20 @@ Connect to your database and browse tables, schemas, and data with an intuitive 
 		return nil
 	},
 	Run: func(cmd *cobra.Command, args []string) {
+		// Load configuration file
+		cfg, err := config.LoadConfig(configFile)
+		if err != nil {
+			fmt.Printf("Error loading config file: %v\n", err)
+			os.Exit(1)
+		}
+
+		// Merge key bindings from config with defaults
+		defaultKeyBindings := tui.DefaultKeyBindings()
+		configKeyBindings := tui.ConvertConfigKeyBindings(cfg)
+		keyBindings := tui.MergeKeyBindings(defaultKeyBindings, configKeyBindings)
+
 		// Create database configuration
-		config := tui.DBConfig{
+		dbConfig := tui.DBConfig{
 			Driver:   dbDriver,
 			Host:     dbHost,
 			Port:     dbPort,
@@ -92,7 +106,7 @@ Connect to your database and browse tables, schemas, and data with an intuitive 
 		}
 
 		// Create and start the bubbletea program
-		p := tea.NewProgram(tui.NewModel(config), tea.WithAltScreen())
+		p := tea.NewProgram(tui.NewModel(dbConfig, keyBindings), tea.WithAltScreen())
 		if _, err := p.Run(); err != nil {
 			fmt.Printf("Error running TUI: %v\n", err)
 			os.Exit(1)
@@ -110,6 +124,9 @@ func Execute() {
 }
 
 func init() {
+	// Configuration file flag
+	rootCmd.Flags().StringVarP(&configFile, "config-file", "c", "", "Path to config file (default: ~/.config/dessertfrog/config.yaml)")
+
 	// Database connection flags
 	rootCmd.Flags().StringVarP(&dbDriver, "driver", "d", "postgres", "Database driver (mariadb, postgres)")
 	rootCmd.Flags().StringVarP(&dbHost, "host", "", "", "Database host (default: localhost)")
