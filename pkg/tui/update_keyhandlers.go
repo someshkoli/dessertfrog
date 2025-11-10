@@ -748,6 +748,22 @@ func (m Model) handleCellValuePopupKeys(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 			m.cellValuePopupScroll = 0
 			m.cellValuePopupSelected = 0
 
+		case CommandCopyCellValue:
+			// Copy the appropriate value based on context
+			var valueToCopy string
+			if m.cellValuePopupIsJSON && len(m.cellValuePopupTree) > 0 {
+				// JSON popup: copy the value of the selected node
+				if m.cellValuePopupSelected < len(m.cellValuePopupTree) {
+					node := m.cellValuePopupTree[m.cellValuePopupSelected]
+					valueToCopy = fmt.Sprintf("%v", node.Value)
+				}
+			} else {
+				// Non-JSON popup: copy the entire cell value
+				valueToCopy = m.cellValuePopupContent
+			}
+			m = m.copyValueToClipboard(valueToCopy)
+			return m, clearClipboardMessage()
+
 		case CommandNavigateDown:
 			// Scroll down or navigate to next node
 			if m.cellValuePopupIsJSON && len(m.cellValuePopupTree) > 0 {
@@ -818,6 +834,13 @@ func (m Model) handleRecordViewKeys(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 			// Open cell value popup for the selected field
 			if m.recordViewSelected < len(m.recordViewData) {
 				m = m.openCellValuePopup(m.recordViewData[m.recordViewSelected])
+			}
+
+		case CommandCopyCellValue:
+			// Copy the value of the selected field
+			if m.recordViewSelected < len(m.recordViewData) {
+				m = m.copyValueToClipboard(m.recordViewData[m.recordViewSelected])
+				return m, clearClipboardMessage()
 			}
 
 		case CommandNavigateDown:

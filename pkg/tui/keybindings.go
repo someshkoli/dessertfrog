@@ -193,7 +193,7 @@ func DefaultKeyBindings() KeyBindings {
 		CellPopup: []KeyBinding{
 			{"esc", CommandCancel},
 			{"q", CommandCancel},
-			{"v", CommandCancel},
+			{"y", CommandCopyCellValue},
 			{"j", CommandNavigateDown},
 			{"k", CommandNavigateUp},
 			{"down", CommandNavigateDown},
@@ -215,6 +215,7 @@ func DefaultKeyBindings() KeyBindings {
 			{"down", CommandNavigateDown},
 			{"up", CommandNavigateUp},
 			{"v", CommandOpenCellPopup},
+			{"y", CommandCopyCellValue},
 			{"g", CommandGoToTop},
 			{"G", CommandGoToBottom},
 		},

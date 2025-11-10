@@ -9,11 +9,21 @@ import (
 
 // copyCellToClipboard copies the current cell value to clipboard
 func (m Model) copyCellToClipboard(value string) Model {
+	return m.copyToClipboardWithMessage(value, "Cell copied!")
+}
+
+// copyValueToClipboard copies a value to clipboard with "Value copied!" message
+func (m Model) copyValueToClipboard(value string) Model {
+	return m.copyToClipboardWithMessage(value, "Value copied!")
+}
+
+// copyToClipboardWithMessage copies text to clipboard with a custom success message
+func (m Model) copyToClipboardWithMessage(value string, successMessage string) Model {
 	err := clipboard.WriteAll(value)
 	if err != nil {
 		m.clipboardMessage = fmt.Sprintf("Copy failed: %v", err)
 	} else {
-		m.clipboardMessage = "Cell copied!"
+		m.clipboardMessage = successMessage
 	}
 
 	return m

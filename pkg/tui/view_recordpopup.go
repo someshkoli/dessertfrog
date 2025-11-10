@@ -28,6 +28,14 @@ func (m Model) renderRecordViewPopup(mainView string) string {
 	// Create popup box with title
 	title := fmt.Sprintf(" Record View (Row %d) ", m.selectedDataRow+m.tableDataOffset+1)
 
+	// Add clipboard notification if present
+	if m.clipboardMessage != "" {
+		clipboardStyle := lipgloss.NewStyle().
+			Foreground(lipgloss.Color("120")).
+			Bold(true)
+		title += "  " + clipboardStyle.Render(m.clipboardMessage)
+	}
+
 	popupStyle := lipgloss.NewStyle().
 		Border(lipgloss.RoundedBorder()).
 		BorderForeground(lipgloss.Color("62")).
@@ -39,7 +47,7 @@ func (m Model) renderRecordViewPopup(mainView string) string {
 		Bold(true).
 		Foreground(lipgloss.Color("205"))
 
-	helpText := "j/k: navigate  v: view value  q/Esc/V: close"
+	helpText := "j/k: navigate  y: copy  v: view value  q/Esc/V: close"
 
 	helpStyle := lipgloss.NewStyle().
 		Foreground(lipgloss.Color("241"))

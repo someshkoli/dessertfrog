@@ -36,6 +36,14 @@ func (m Model) renderCellValuePopup(mainView string) string {
 		title = " Cell Value (JSON) "
 	}
 
+	// Add clipboard notification if present
+	if m.clipboardMessage != "" {
+		clipboardStyle := lipgloss.NewStyle().
+			Foreground(lipgloss.Color("120")).
+			Bold(true)
+		title += "  " + clipboardStyle.Render(m.clipboardMessage)
+	}
+
 	popupStyle := lipgloss.NewStyle().
 		Border(lipgloss.RoundedBorder()).
 		BorderForeground(lipgloss.Color("62")).
@@ -47,9 +55,9 @@ func (m Model) renderCellValuePopup(mainView string) string {
 		Bold(true).
 		Foreground(lipgloss.Color("205"))
 
-	helpText := "j/k: navigate | h/l: collapse/expand | q/Esc/v: close"
+	helpText := "j/k: navigate | h/l: collapse/expand | y: copy | q/Esc/v: close"
 	if !m.cellValuePopupIsJSON {
-		helpText = "j/k: scroll | q/Esc/v: close"
+		helpText = "j/k: scroll | y: copy | q/Esc/v: close"
 	}
 
 	helpStyle := lipgloss.NewStyle().
