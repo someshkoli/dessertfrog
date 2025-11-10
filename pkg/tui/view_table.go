@@ -43,13 +43,25 @@ func (m Model) renderTablesContent(visibleRows, contentWidth int) string {
 	}
 	content += separator + "\n"
 
+	// Check if we need to show "more above" indicator
+	hasMoreAbove := m.scrollOffset > 0
+
+	// When showing "more above", skip the first row to make room for the indicator
+	startIndex := m.scrollOffset
+	if hasMoreAbove {
+		startIndex = m.scrollOffset + 1
+	}
+
 	// Render only visible rows
 	endIndex := m.scrollOffset + visibleRows
 	if endIndex > len(displayTables) {
 		endIndex = len(displayTables)
 	}
 
-	for i := m.scrollOffset; i < endIndex; i++ {
+	// Check if we need to show "more below" indicator (after calculating endIndex)
+	hasMoreBelow := endIndex < len(displayTables)
+
+	for i := startIndex; i < endIndex; i++ {
 		table := displayTables[i]
 		columnCount := len(table.Columns)
 
@@ -76,10 +88,10 @@ func (m Model) renderTablesContent(visibleRows, contentWidth int) string {
 	}
 
 	// Add scroll indicators
-	if m.scrollOffset > 0 {
+	if hasMoreAbove {
 		content += "\n↑ More above (k to scroll up)"
 	}
-	if endIndex < len(displayTables) {
+	if hasMoreBelow {
 		content += "\n↓ More below (j to scroll down)"
 	}
 
