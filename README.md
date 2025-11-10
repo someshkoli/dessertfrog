@@ -1,7 +1,9 @@
 # dessertfrog
 
 A terminal UI database browser for SQL style datastores.
-<img width="1065" height="600" alt="home" src="https://github.com/user-attachments/assets/f4a058d8-2028-4ee0-a1de-bf8d07401577" />
+<!-- <img width="1065" height="600" alt="home" src="https://github.com/user-attachments/assets/f4a058d8-2028-4ee0-a1de-bf8d07401577" /> -->
+<img width="1037" height="422" alt="home-with-schema" src="https://github.com/user-attachments/assets/ef6efe97-1bdd-4b56-82b7-7a0ea8c132af" />
+
 <img width="986" height="495" alt="search" src="https://github.com/user-attachments/assets/31fc4f07-53bb-44e8-b8a4-91a8e2ed6e86" />
 <img width="1064" height="603" alt="table" src="https://github.com/user-attachments/assets/1d13223a-c18b-431d-a557-3fd959ea0d9e" />
 <img width="1065" height="602" alt="json-walker" src="https://github.com/user-attachments/assets/1fb168d6-1b12-4db4-8b75-db2ab071361d" />
