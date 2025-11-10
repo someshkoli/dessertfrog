@@ -16,7 +16,7 @@ func (m Model) renderSchemaPanel(width, availableHeight int) string {
 		panelWidth = 30
 	}
 
-	panelHeight := availableHeight - 8 // Leave room for layout spacing
+	panelHeight := availableHeight - 4 // Leave room for layout spacing
 	if panelHeight < 5 {
 		panelHeight = 5
 	}
@@ -129,6 +129,7 @@ func (m Model) renderSchemaPanel(width, availableHeight int) string {
 		content.WriteString("\n")
 		visibleCount++
 	}
+	content.WriteString("\n")
 
 	// Add scroll indicators (same as table pane)
 	if m.schemaPanelScroll > 0 {
