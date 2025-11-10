@@ -50,14 +50,16 @@ func fetchTableData(drv driver.Driver, schemaName, tableName string, offset int)
 		ctx := context.Background()
 
 		// Fetch table data with limit of 500 rows and given offset
-		columns, rows, err := drv.GetTableData(ctx, schemaName, tableName, 500, offset)
+		columns, rows, queryTime, fetchTime, err := drv.GetTableData(ctx, schemaName, tableName, 500, offset)
 		if err != nil {
 			return tableDataLoadFailedMsg{err: err}
 		}
 
 		return tableDataLoadedMsg{
-			columns: columns,
-			rows:    rows,
+			columns:   columns,
+			rows:      rows,
+			queryTime: queryTime.String(),
+			fetchTime: fetchTime.String(),
 		}
 	}
 }
@@ -86,15 +88,17 @@ func executeSQLQuery(drv driver.Driver, query string) tea.Cmd {
 		ctx := context.Background()
 
 		// Execute the custom SQL query
-		columns, rows, err := drv.ExecuteQuery(ctx, query)
+		columns, rows, queryTime, fetchTime, err := drv.ExecuteQuery(ctx, query)
 		if err != nil {
 			return sqlQueryFailedMsg{err: err, query: query}
 		}
 
 		return sqlQueryResultMsg{
-			columns: columns,
-			rows:    rows,
-			query:   query,
+			columns:   columns,
+			rows:      rows,
+			query:     query,
+			queryTime: queryTime.String(),
+			fetchTime: fetchTime.String(),
 		}
 	}
 }

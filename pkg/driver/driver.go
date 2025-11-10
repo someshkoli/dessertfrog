@@ -2,6 +2,7 @@ package driver
 
 import (
 	"context"
+	"time"
 )
 
 // EntityType represents the type of database entity
@@ -67,14 +68,18 @@ type Driver interface {
 	GetTableSchema(ctx context.Context, schemaName, tableName string) (*TableSchema, error)
 
 	// GetTableData fetches the actual data from a table/view
-	// Returns column names and rows of data (as strings for display)
+	// Returns column names, rows of data (as strings for display), and timing info
 	// limit: maximum number of rows to fetch (e.g., 100)
 	// offset: number of rows to skip (for pagination)
-	GetTableData(ctx context.Context, schemaName, tableName string, limit, offset int) (columns []string, rows [][]string, error error)
+	// queryTime: time taken to execute the query
+	// fetchTime: time taken to fetch/scan the results
+	GetTableData(ctx context.Context, schemaName, tableName string, limit, offset int) (columns []string, rows [][]string, queryTime, fetchTime time.Duration, error error)
 
 	// ExecuteQuery executes a custom SQL query and returns the results
-	// Returns column names and rows of data (as strings for display)
-	ExecuteQuery(ctx context.Context, query string) (columns []string, rows [][]string, error error)
+	// Returns column names, rows of data (as strings for display), and timing info
+	// queryTime: time taken to execute the query
+	// fetchTime: time taken to fetch/scan the results
+	ExecuteQuery(ctx context.Context, query string) (columns []string, rows [][]string, queryTime, fetchTime time.Duration, error error)
 
 	// UpdateCell updates a single cell in a table
 	// tableSchema: the table schema (includes primary key info, can be nil)

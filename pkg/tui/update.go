@@ -56,6 +56,8 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.allTableData = msg.rows // Store unfiltered data
 		m.tableDataError = ""
 		m.tableContentFilter = "" // Clear filter on new data load
+		m.queryTime = msg.queryTime
+		m.fetchTime = msg.fetchTime
 		// Reset scroll and selection when new data is loaded
 		m.tableDataScrollX = 0
 		m.tableDataScrollY = 0
@@ -117,6 +119,18 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.selectedDataRow = 0
 		m.selectedDataCol = 0
 		m.tableDataOffset = 0
+		m.queryTime = msg.queryTime
+		m.fetchTime = msg.fetchTime
+
+		// Push to history
+		if !m.isNavigatingHistory {
+			m = m.debugLog("  SQL query result, pushing to history")
+			m = m.pushHistory()
+		} else {
+			m = m.debugLog("  Navigating history, NOT pushing, clearing flag")
+			m.isNavigatingHistory = false
+		}
+
 		return m, nil
 
 	case sqlQueryFailedMsg:

@@ -16,6 +16,10 @@ func (m Model) captureCurrentState() HistoryState {
 		selectedDataCol:  m.selectedDataCol,
 		tableDataScrollX: m.tableDataScrollX,
 		tableDataScrollY: m.tableDataScrollY,
+		isCustomQuery:    m.isCustomQuery,
+		executedSQLQuery: m.executedSQLQuery,
+		tableColumns:     m.tableColumns,
+		tableData:        m.tableData,
 	}
 }
 
@@ -55,6 +59,11 @@ func (m Model) restoreState(state HistoryState) Model {
 	m.selectedDataCol = state.selectedDataCol
 	m.tableDataScrollX = state.tableDataScrollX
 	m.tableDataScrollY = state.tableDataScrollY
+	m.isCustomQuery = state.isCustomQuery
+	m.executedSQLQuery = state.executedSQLQuery
+	m.tableColumns = state.tableColumns
+	m.tableData = state.tableData
+	m.allTableData = state.tableData // Also restore allTableData
 
 	return m
 }
@@ -87,7 +96,9 @@ func (m Model) navigateBack() (Model, tea.Cmd) {
 			marker = ">"
 		}
 		if history.tableViewMode {
-			if history.currentViewTable != nil {
+			if history.isCustomQuery {
+				m = m.debugLog("  %s[%d] custom query", marker, i)
+			} else if history.currentViewTable != nil {
 				m = m.debugLog("  %s[%d] %s", marker, i, history.currentViewTable.TableName)
 			} else {
 				m = m.debugLog("  %s[%d] <nil table>", marker, i)
@@ -100,16 +111,20 @@ func (m Model) navigateBack() (Model, tea.Cmd) {
 	// Restore state
 	m = m.restoreState(state)
 
-	// If navigating to table view, reload data
-	if m.tableViewMode && m.currentViewTable != nil {
+	// If navigating to table view (not custom query), reload data
+	if m.tableViewMode && !m.isCustomQuery && m.currentViewTable != nil {
 		m.tableDataLoading = true
 		m = m.debugLog("  Triggering data load for %s", m.currentViewTable.TableName)
 		return m, fetchTableData(m.driver, m.currentViewTable.SchemaName, m.currentViewTable.TableName, m.tableDataOffset)
 	}
 
-	// Clear the flag if we didn't trigger data load
+	// Clear the flag if we didn't trigger data load (custom query or not table view)
 	m.isNavigatingHistory = false
-	m = m.debugLog("  No data load needed, cleared flag")
+	if m.isCustomQuery {
+		m = m.debugLog("  Custom query, data already in history, cleared flag")
+	} else {
+		m = m.debugLog("  No data load needed, cleared flag")
+	}
 
 	return m, nil
 }
@@ -142,7 +157,9 @@ func (m Model) navigateForward() (Model, tea.Cmd) {
 			marker = ">"
 		}
 		if history.tableViewMode {
-			if history.currentViewTable != nil {
+			if history.isCustomQuery {
+				m = m.debugLog("  %s[%d] custom query", marker, i)
+			} else if history.currentViewTable != nil {
 				m = m.debugLog("  %s[%d] %s", marker, i, history.currentViewTable.TableName)
 			} else {
 				m = m.debugLog("  %s[%d] <nil table>", marker, i)
@@ -155,16 +172,20 @@ func (m Model) navigateForward() (Model, tea.Cmd) {
 	// Restore state
 	m = m.restoreState(state)
 
-	// If navigating to table view, reload data
-	if m.tableViewMode && m.currentViewTable != nil {
+	// If navigating to table view (not custom query), reload data
+	if m.tableViewMode && !m.isCustomQuery && m.currentViewTable != nil {
 		m.tableDataLoading = true
 		m = m.debugLog("  Triggering data load for %s", m.currentViewTable.TableName)
 		return m, fetchTableData(m.driver, m.currentViewTable.SchemaName, m.currentViewTable.TableName, m.tableDataOffset)
 	}
 
-	// Clear the flag if we didn't trigger data load
+	// Clear the flag if we didn't trigger data load (custom query or not table view)
 	m.isNavigatingHistory = false
-	m = m.debugLog("  No data load needed, cleared flag")
+	if m.isCustomQuery {
+		m = m.debugLog("  Custom query, data already in history, cleared flag")
+	} else {
+		m = m.debugLog("  No data load needed, cleared flag")
+	}
 
 	return m, nil
 }

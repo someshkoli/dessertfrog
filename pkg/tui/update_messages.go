@@ -19,8 +19,10 @@ type tablesLoadFailedMsg struct {
 
 // Table data messages
 type tableDataLoadedMsg struct {
-	columns []string
-	rows    [][]string
+	columns   []string
+	rows      [][]string
+	queryTime string // Time taken to execute query
+	fetchTime string // Time taken to fetch data
 }
 type tableDataLoadFailedMsg struct {
 	err error
@@ -39,9 +41,11 @@ type clearClipboardMsgType struct{}
 
 // SQL query messages
 type sqlQueryResultMsg struct {
-	columns []string
-	rows    [][]string
-	query   string
+	columns   []string
+	rows      [][]string
+	query     string
+	queryTime string // Time taken to execute query
+	fetchTime string // Time taken to fetch data
 }
 type sqlQueryFailedMsg struct {
 	err   error

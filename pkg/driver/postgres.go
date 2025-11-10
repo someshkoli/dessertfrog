@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"strings"
+	"time"
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
@@ -536,18 +537,21 @@ func (p *PostgresDriver) fetchTriggers(ctx context.Context) ([]TableSchema, erro
 }
 
 // GetTableData fetches actual data from a table or view
-func (p *PostgresDriver) GetTableData(ctx context.Context, schemaName, tableName string, limit, offset int) ([]string, [][]string, error) {
+func (p *PostgresDriver) GetTableData(ctx context.Context, schemaName, tableName string, limit, offset int) ([]string, [][]string, time.Duration, time.Duration, error) {
 	if p.pool == nil {
-		return nil, nil, fmt.Errorf("connection is not established")
+		return nil, nil, 0, 0, fmt.Errorf("connection is not established")
 	}
 
 	// Build the query with LIMIT and OFFSET
 	query := fmt.Sprintf(`SELECT * FROM "%s"."%s" LIMIT $1 OFFSET $2`, schemaName, tableName)
 
-	// Execute query
+	// Execute query and measure query time
+	queryStart := time.Now()
 	rows, err := p.pool.Query(ctx, query, limit, offset)
+	queryTime := time.Since(queryStart)
+
 	if err != nil {
-		return nil, nil, fmt.Errorf("failed to query table data: %w", err)
+		return nil, nil, 0, 0, fmt.Errorf("failed to query table data: %w", err)
 	}
 	defer rows.Close()
 
@@ -558,13 +562,15 @@ func (p *PostgresDriver) GetTableData(ctx context.Context, schemaName, tableName
 		columns[i] = string(fd.Name)
 	}
 
-	// Fetch all rows
+	// Fetch all rows and measure fetch time
+	fetchStart := time.Now()
 	var data [][]string
 	for rows.Next() {
 		// Get values
 		values, err := rows.Values()
 		if err != nil {
-			return nil, nil, fmt.Errorf("failed to scan row: %w", err)
+			fetchTime := time.Since(fetchStart)
+			return nil, nil, queryTime, fetchTime, fmt.Errorf("failed to scan row: %w", err)
 		}
 
 		// Convert values to strings
@@ -591,24 +597,28 @@ func (p *PostgresDriver) GetTableData(ctx context.Context, schemaName, tableName
 
 		data = append(data, row)
 	}
+	fetchTime := time.Since(fetchStart)
 
 	if err := rows.Err(); err != nil {
-		return nil, nil, fmt.Errorf("error iterating rows: %w", err)
+		return nil, nil, queryTime, fetchTime, fmt.Errorf("error iterating rows: %w", err)
 	}
 
-	return columns, data, nil
+	return columns, data, queryTime, fetchTime, nil
 }
 
 // ExecuteQuery executes a custom SQL query and returns the results
-func (p *PostgresDriver) ExecuteQuery(ctx context.Context, query string) ([]string, [][]string, error) {
+func (p *PostgresDriver) ExecuteQuery(ctx context.Context, query string) ([]string, [][]string, time.Duration, time.Duration, error) {
 	if p.pool == nil {
-		return nil, nil, fmt.Errorf("connection is not established")
+		return nil, nil, 0, 0, fmt.Errorf("connection is not established")
 	}
 
-	// Execute the query
+	// Execute the query and measure query time
+	queryStart := time.Now()
 	rows, err := p.pool.Query(ctx, query)
+	queryTime := time.Since(queryStart)
+
 	if err != nil {
-		return nil, nil, fmt.Errorf("failed to execute query: %w", err)
+		return nil, nil, queryTime, 0, fmt.Errorf("failed to execute query: %w", err)
 	}
 	defer rows.Close()
 
@@ -619,13 +629,15 @@ func (p *PostgresDriver) ExecuteQuery(ctx context.Context, query string) ([]stri
 		columns[i] = string(fd.Name)
 	}
 
-	// Fetch all rows
+	// Fetch all rows and measure fetch time
+	fetchStart := time.Now()
 	var data [][]string
 	for rows.Next() {
 		// Get values
 		values, err := rows.Values()
 		if err != nil {
-			return nil, nil, fmt.Errorf("failed to scan row: %w", err)
+			fetchTime := time.Since(fetchStart)
+			return nil, nil, queryTime, fetchTime, fmt.Errorf("failed to scan row: %w", err)
 		}
 
 		// Convert values to strings
@@ -652,12 +664,13 @@ func (p *PostgresDriver) ExecuteQuery(ctx context.Context, query string) ([]stri
 
 		data = append(data, row)
 	}
+	fetchTime := time.Since(fetchStart)
 
 	if err := rows.Err(); err != nil {
-		return nil, nil, fmt.Errorf("error iterating rows: %w", err)
+		return nil, nil, queryTime, fetchTime, fmt.Errorf("error iterating rows: %w", err)
 	}
 
-	return columns, data, nil
+	return columns, data, queryTime, fetchTime, nil
 }
 // UpdateCell updates a single cell in a table
 func (p *PostgresDriver) UpdateCell(ctx context.Context, tableSchema *TableSchema, columns []string, oldRow []string, columnName, newValue string) error {

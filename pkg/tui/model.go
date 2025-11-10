@@ -51,6 +51,12 @@ type HistoryState struct {
 	selectedDataCol  int
 	tableDataScrollX int
 	tableDataScrollY int
+
+	// Custom query state
+	isCustomQuery    bool
+	executedSQLQuery string
+	tableColumns     []string
+	tableData        [][]string
 }
 
 // Model represents the bubbletea application state
@@ -92,6 +98,8 @@ type Model struct {
 	tableDataError     string              // Error loading table data
 	tableContentFilter string              // Content search filter
 	allTableData       [][]string          // Unfiltered table data (backup for filtering)
+	queryTime          string              // Time taken to execute query (e.g., "15ms")
+	fetchTime          string              // Time taken to fetch data (e.g., "23ms")
 
 	// Cell value popup
 	cellValuePopupMode     bool       // Whether cell value popup is active
