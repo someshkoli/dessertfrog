@@ -209,7 +209,7 @@ func (p *PostgresDriver) GetTableSchema(ctx context.Context, schemaName, tableNa
 		schema.Comment = *comment
 	}
 
-	// Now get column information
+	// Now get column information with foreign keys
 	columnQuery := `
 		SELECT
 			c.column_name,
@@ -231,7 +231,10 @@ func (p *PostgresDriver) GetTableSchema(ctx context.Context, schemaName, tableNa
 					AND tc.constraint_type = 'UNIQUE'
 			) THEN true ELSE false END as is_unique,
 			CASE WHEN c.column_default LIKE 'nextval%' THEN true ELSE false END as is_auto_increment,
-			col_description((c.table_schema || '.' || c.table_name)::regclass, c.ordinal_position) as column_comment
+			col_description((c.table_schema || '.' || c.table_name)::regclass, c.ordinal_position) as column_comment,
+			CASE WHEN fk.column_name IS NOT NULL THEN true ELSE false END as is_foreign_key,
+			COALESCE(fk.foreign_table, '') as foreign_table,
+			COALESCE(fk.foreign_column, '') as foreign_column
 		FROM information_schema.columns c
 		LEFT JOIN (
 			SELECT kcu.column_name
@@ -243,6 +246,22 @@ func (p *PostgresDriver) GetTableSchema(ctx context.Context, schemaName, tableNa
 				AND tc.table_schema = $1
 				AND tc.table_name = $2
 		) pk ON c.column_name = pk.column_name
+		LEFT JOIN (
+			SELECT
+				kcu.column_name,
+				ccu.table_name AS foreign_table,
+				ccu.column_name AS foreign_column
+			FROM information_schema.table_constraints tc
+			JOIN information_schema.key_column_usage kcu
+				ON tc.constraint_name = kcu.constraint_name
+				AND tc.table_schema = kcu.table_schema
+			JOIN information_schema.constraint_column_usage ccu
+				ON tc.constraint_name = ccu.constraint_name
+				AND tc.table_schema = ccu.table_schema
+			WHERE tc.constraint_type = 'FOREIGN KEY'
+				AND tc.table_schema = $1
+				AND tc.table_name = $2
+		) fk ON c.column_name = fk.column_name
 		WHERE c.table_schema = $1 AND c.table_name = $2
 		ORDER BY c.ordinal_position
 	`
@@ -271,6 +290,9 @@ func (p *PostgresDriver) GetTableSchema(ctx context.Context, schemaName, tableNa
 			&col.IsUnique,
 			&col.IsAutoIncr,
 			&columnComment,
+			&col.IsForeignKey,
+			&col.ForeignTable,
+			&col.ForeignColumn,
 		)
 		if err != nil {
 			return nil, fmt.Errorf("failed to scan column row: %w", err)
@@ -291,6 +313,54 @@ func (p *PostgresDriver) GetTableSchema(ctx context.Context, schemaName, tableNa
 
 	if err := rows.Err(); err != nil {
 		return nil, fmt.Errorf("error iterating column rows: %w", err)
+	}
+
+	// Fetch indexes for this table
+	indexQuery := `
+		SELECT
+			i.indexname,
+			i.indexdef,
+			CASE WHEN i.indexname LIKE '%_pkey' THEN true ELSE false END as is_primary
+		FROM pg_indexes i
+		WHERE i.schemaname = $1 AND i.tablename = $2
+		ORDER BY i.indexname
+	`
+
+	idxRows, err := p.pool.Query(ctx, indexQuery, schemaName, tableName)
+	if err == nil {
+		defer idxRows.Close()
+		for idxRows.Next() {
+			var idx IndexInfo
+			var indexDef string
+			var isPrimary bool
+
+			err := idxRows.Scan(&idx.Name, &indexDef, &isPrimary)
+			if err != nil {
+				continue
+			}
+
+			idx.IsPrimary = isPrimary
+			idx.IsUnique = strings.Contains(strings.ToUpper(indexDef), "UNIQUE")
+
+			// Parse column names from index definition (simplified)
+			// Example: CREATE INDEX idx_name ON table USING btree (col1, col2)
+			if strings.Contains(indexDef, "(") && strings.Contains(indexDef, ")") {
+				start := strings.Index(indexDef, "(")
+				end := strings.LastIndex(indexDef, ")")
+				colStr := indexDef[start+1 : end]
+				cols := strings.Split(colStr, ",")
+				for _, col := range cols {
+					col = strings.TrimSpace(col)
+					// Remove any function calls or expressions, keep just column name
+					if spaceIdx := strings.Index(col, " "); spaceIdx > 0 {
+						col = col[:spaceIdx]
+					}
+					idx.Columns = append(idx.Columns, col)
+				}
+			}
+
+			schema.Indexes = append(schema.Indexes, idx)
+		}
 	}
 
 	return &schema, nil

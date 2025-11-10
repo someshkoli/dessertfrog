@@ -28,7 +28,18 @@ type ColumnSchema struct {
 	IsPrimaryKey bool
 	IsUnique     bool
 	IsAutoIncr   bool   // auto increment / serial
+	IsForeignKey bool
+	ForeignTable string // Referenced table (if foreign key)
+	ForeignColumn string // Referenced column (if foreign key)
 	Comment      string // column comment if available
+}
+
+// IndexInfo holds information about a table index
+type IndexInfo struct {
+	Name      string
+	Columns   []string
+	IsUnique  bool
+	IsPrimary bool
 }
 
 // TableSchema holds detailed schema information about a table or database entity
@@ -37,6 +48,7 @@ type TableSchema struct {
 	SchemaName  string
 	TableName   string // Also used for function name, trigger name, etc.
 	Columns     []ColumnSchema
+	Indexes     []IndexInfo
 	RowCount    int64  // -1 if not available/calculated
 	TableType   string // "BASE TABLE", "VIEW", "MATERIALIZED VIEW", etc.
 	Comment     string // entity comment if available

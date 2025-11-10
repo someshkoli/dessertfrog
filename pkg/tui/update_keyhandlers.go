@@ -270,14 +270,27 @@ func (m Model) handleInlineSearchModeKeys(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		}
 
 	case "tab":
-		// Accept autocomplete suggestion
-		if m.inlineSearchSuggestion != "" {
-			m.inlineSearchQuery += m.inlineSearchSuggestion
-			m.inlineSearchSuggestion = getAutocompleteSuggestion(m.inlineSearchQuery)
+		if !inTableView {
+			// On home screen: switch between table list and schema panel
+			// If there's an autocomplete suggestion and schema panel is not focused, accept it
+			if m.inlineSearchSuggestion != "" && !m.schemaPanelFocused {
+				m.inlineSearchQuery += m.inlineSearchSuggestion
+				m.inlineSearchSuggestion = getAutocompleteSuggestion(m.inlineSearchQuery)
+			} else {
+				// Otherwise, switch focus to schema panel
+				m.schemaPanelFocused = !m.schemaPanelFocused
+			}
+		} else {
+			// In table view: accept autocomplete suggestion
+			if m.inlineSearchSuggestion != "" {
+				m.inlineSearchQuery += m.inlineSearchSuggestion
+				m.inlineSearchSuggestion = getAutocompleteSuggestion(m.inlineSearchQuery)
+			}
 		}
 
 	case "backspace":
-		if len(m.inlineSearchQuery) > 0 {
+		// Don't modify filter if schema panel is focused (unless in table view)
+		if len(m.inlineSearchQuery) > 0 && (!m.schemaPanelFocused || inTableView) {
 			m.inlineSearchQuery = m.inlineSearchQuery[:len(m.inlineSearchQuery)-1]
 			m.inlineSearchSuggestion = getAutocompleteSuggestion(m.inlineSearchQuery)
 
@@ -289,23 +302,79 @@ func (m Model) handleInlineSearchModeKeys(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 			} else {
 				m.selectedRow = 0
 				m.scrollOffset = 0
+				// Trigger schema fetch for first filtered table
+				displayTables := m.tables
+				if m.inlineSearchQuery != "" {
+					displayTables = filterTables(m.tables, m.inlineSearchQuery)
+				}
+				if len(displayTables) > 0 {
+					m.schemaInfoLoading = true
+					m.schemaInfo = nil
+					return m, fetchSchemaInfo(m.driver, displayTables[0].SchemaName, displayTables[0].TableName)
+				}
 			}
 		}
 
-	case "down":
-		// Move down in filtered table list
-		displayTables := m.tables
-		if m.inlineSearchQuery != "" {
-			displayTables = filterTables(m.tables, m.inlineSearchQuery)
-		}
-		if m.selectedRow < len(displayTables)-1 {
-			m.selectedRow++
+	case "j", "down":
+		if !inTableView && m.schemaPanelFocused {
+			// Navigate within schema panel
+			if m.schemaPanelLineCount > 0 && m.schemaPanelSelected < m.schemaPanelLineCount-1 {
+				m.schemaPanelSelected++
+			}
+		} else {
+			// Move down in filtered table list
+			displayTables := m.tables
+			if m.inlineSearchQuery != "" {
+				displayTables = filterTables(m.tables, m.inlineSearchQuery)
+			}
+			if m.selectedRow < len(displayTables)-1 {
+				m.selectedRow++
+				// Trigger async schema info fetch for new table
+				if !inTableView {
+					m.schemaInfoLoading = true
+					m.schemaInfo = nil
+					selectedTable := displayTables[m.selectedRow]
+					return m, fetchSchemaInfo(m.driver, selectedTable.SchemaName, selectedTable.TableName)
+				}
+			}
 		}
 
-	case "up":
-		// Move up in filtered table list
-		if m.selectedRow > 0 {
-			m.selectedRow--
+	case "k", "up":
+		if !inTableView && m.schemaPanelFocused {
+			// Navigate within schema panel
+			if m.schemaPanelSelected > 0 {
+				m.schemaPanelSelected--
+			}
+		} else {
+			// Move up in filtered table list
+			if m.selectedRow > 0 {
+				m.selectedRow--
+				// Trigger async schema info fetch for new table
+				displayTables := m.tables
+				if m.inlineSearchQuery != "" {
+					displayTables = filterTables(m.tables, m.inlineSearchQuery)
+				}
+				if !inTableView {
+					m.schemaInfoLoading = true
+					m.schemaInfo = nil
+					selectedTable := displayTables[m.selectedRow]
+					return m, fetchSchemaInfo(m.driver, selectedTable.SchemaName, selectedTable.TableName)
+				}
+			}
+		}
+
+	case "h", "left":
+		// h/left: scroll left in schema panel (no-op for now, could be used for horizontal scroll)
+		// Or navigate to table list if in schema panel
+		if !inTableView && m.schemaPanelFocused {
+			// Could implement horizontal scroll here if needed
+		}
+
+	case "l", "right":
+		// l/right: scroll right in schema panel (no-op for now)
+		// Or could be used for expanding/collapsing items
+		if !inTableView && m.schemaPanelFocused {
+			// Could implement horizontal scroll here if needed
 		}
 
 	case "ctrl+c":
@@ -313,7 +382,8 @@ func (m Model) handleInlineSearchModeKeys(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 
 	default:
 		// Append to inline search query (only single characters)
-		if len(msg.String()) == 1 {
+		// Don't append if schema panel is focused (navigating schema)
+		if len(msg.String()) == 1 && (!m.schemaPanelFocused || inTableView) {
 			m.inlineSearchQuery += msg.String()
 			m.inlineSearchSuggestion = getAutocompleteSuggestion(m.inlineSearchQuery)
 
@@ -325,6 +395,13 @@ func (m Model) handleInlineSearchModeKeys(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 			} else {
 				m.selectedRow = 0
 				m.scrollOffset = 0
+				// Trigger schema fetch for first filtered table
+				displayTables := filterTables(m.tables, m.inlineSearchQuery)
+				if len(displayTables) > 0 {
+					m.schemaInfoLoading = true
+					m.schemaInfo = nil
+					return m, fetchSchemaInfo(m.driver, displayTables[0].SchemaName, displayTables[0].TableName)
+				}
 			}
 		}
 	}
@@ -335,6 +412,12 @@ func (m Model) handleInlineSearchModeKeys(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 // handleNormalModeKeys handles keyboard input in normal mode
 func (m Model) handleNormalModeKeys(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	key := msg.String()
+
+	// Handle Tab to switch between panels
+	if key == "tab" {
+		m.schemaPanelFocused = !m.schemaPanelFocused
+		return m, nil
+	}
 
 	// Check key bindings
 	if cmd, ok := getCommand(key, m.keyBindings.Normal); ok {
@@ -386,24 +469,69 @@ func (m Model) handleNormalModeKeys(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 			m.commandBuffer = ":"
 
 		case CommandNavigateDown:
-			// Move down in table list
-			if m.selectedRow < len(m.tables)-1 {
-				m.selectedRow++
+			if m.schemaPanelFocused {
+				// Schema panel navigation - move cursor down
+				// Bounds will be checked in render, but we track line count
+				if m.schemaPanelLineCount > 0 && m.schemaPanelSelected < m.schemaPanelLineCount-1 {
+					m.schemaPanelSelected++
+				}
+			} else {
+				// Move down in table list
+				if m.selectedRow < len(m.tables)-1 {
+					m.selectedRow++
+					// Reset schema panel cursor when switching tables
+					m.schemaPanelSelected = 0
+					m.schemaPanelScroll = 0
+					m = m.updateSchemaPanelLineCount()
+
+					// Trigger async schema info fetch for new table
+					m.schemaInfoLoading = true
+					m.schemaInfo = nil
+					selectedTable := m.tables[m.selectedRow]
+					return m, fetchSchemaInfo(m.driver, selectedTable.SchemaName, selectedTable.TableName)
+				}
 			}
 
 		case CommandNavigateUp:
-			// Move up in table list
-			if m.selectedRow > 0 {
-				m.selectedRow--
+			if m.schemaPanelFocused {
+				// Schema panel navigation - move cursor up
+				if m.schemaPanelSelected > 0 {
+					m.schemaPanelSelected--
+				}
+			} else {
+				// Move up in table list
+				if m.selectedRow > 0 {
+					m.selectedRow--
+					// Reset schema panel cursor when switching tables
+					m.schemaPanelSelected = 0
+					m.schemaPanelScroll = 0
+					m = m.updateSchemaPanelLineCount()
+
+					// Trigger async schema info fetch for new table
+					m.schemaInfoLoading = true
+					m.schemaInfo = nil
+					selectedTable := m.tables[m.selectedRow]
+					return m, fetchSchemaInfo(m.driver, selectedTable.SchemaName, selectedTable.TableName)
+				}
 			}
 
 		case CommandGoToTop:
-			m.selectedRow = 0
-			m.scrollOffset = 0
+			if m.schemaPanelFocused {
+				m.schemaPanelSelected = 0
+				m.schemaPanelScroll = 0
+			} else {
+				m.selectedRow = 0
+				m.scrollOffset = 0
+			}
 
 		case CommandGoToBottom:
-			if len(m.tables) > 0 {
-				m.selectedRow = len(m.tables) - 1
+			if m.schemaPanelFocused {
+				// Will be bounded by render function
+				m.schemaPanelSelected = 1000
+			} else {
+				if len(m.tables) > 0 {
+					m.selectedRow = len(m.tables) - 1
+				}
 			}
 
 		case CommandPageDown:

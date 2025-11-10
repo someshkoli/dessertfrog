@@ -82,6 +82,23 @@ func fetchTableSchema(drv driver.Driver, schemaName, tableName string) tea.Cmd {
 	}
 }
 
+// fetchSchemaInfo fetches detailed schema information for display in schema panel
+func fetchSchemaInfo(drv driver.Driver, schemaName, tableName string) tea.Cmd {
+	return func() tea.Msg {
+		ctx := context.Background()
+
+		// Fetch full table schema with columns, indexes, foreign keys
+		schema, err := drv.GetTableSchema(ctx, schemaName, tableName)
+		if err != nil {
+			return schemaInfoLoadFailedMsg{err: err}
+		}
+
+		return schemaInfoLoadedMsg{
+			schema: schema,
+		}
+	}
+}
+
 // executeSQLQuery executes a custom SQL query
 func executeSQLQuery(drv driver.Driver, query string) tea.Cmd {
 	return func() tea.Msg {

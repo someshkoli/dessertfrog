@@ -3,7 +3,7 @@ package tui
 import "fmt"
 
 // renderTablesContent renders the tables list content
-func (m Model) renderTablesContent(visibleRows int) string {
+func (m Model) renderTablesContent(visibleRows, contentWidth int) string {
 	if m.tablesLoading {
 		return "Loading tables..."
 	}
@@ -27,8 +27,21 @@ func (m Model) renderTablesContent(visibleRows int) string {
 	}
 
 	// Build table list header
-	content := fmt.Sprintf("%-45s %-18s %-10s %-12s\n", "Table Name", "Schema", "Columns", "Rows")
-	content += "──────────────────────────────────────────────────────────────────────────────────────\n"
+	content := fmt.Sprintf("%-50s %-12s %-12s\n", "Table Name", "Columns", "Rows")
+
+	// Generate separator line based on content width (account for padding)
+	separatorWidth := contentWidth - 4 // Account for border padding
+	if separatorWidth < 10 {
+		separatorWidth = 10
+	}
+	if separatorWidth > 74 { // Header is 74 chars (50+12+12)
+		separatorWidth = 74
+	}
+	separator := ""
+	for i := 0; i < separatorWidth; i++ {
+		separator += "─"
+	}
+	content += separator + "\n"
 
 	// Render only visible rows
 	endIndex := m.scrollOffset + visibleRows
@@ -48,9 +61,8 @@ func (m Model) renderTablesContent(visibleRows int) string {
 			rowCountStr = "N/A"
 		}
 
-		rowText := fmt.Sprintf("%-45s %-18s %-10d %-12s",
-			truncate(table.TableName, 45),
-			truncate(table.SchemaName, 18),
+		rowText := fmt.Sprintf("%-50s %-12d %-12s",
+			truncate(table.TableName, 50),
 			columnCount,
 			rowCountStr,
 		)
@@ -83,7 +95,7 @@ func (m Model) renderTablesBox(availableWidth, availableHeight int) string {
 		tablesBoxWidth = 40
 	}
 
-	tablesBoxHeight := availableHeight - 8 // Leave room for title, help, status line
+	tablesBoxHeight := availableHeight - 8 // Leave room for layout spacing
 	if tablesBoxHeight < 5 {
 		tablesBoxHeight = 5
 	}
@@ -115,10 +127,16 @@ func (m Model) renderTablesBox(availableWidth, availableHeight int) string {
 		m.scrollOffset = 0
 	}
 
-	tablesContent := m.renderTablesContent(visibleRows)
+	tablesContent := m.renderTablesContent(visibleRows, tablesBoxWidth)
+
+	// Choose border style based on focus
+	boxBorderStyle := inactiveBorderStyle
+	if !m.schemaPanelFocused {
+		boxBorderStyle = activeBorderStyle
+	}
 
 	// Create styled tables box with maximum size
-	return borderStyle.
+	return boxBorderStyle.
 		Width(tablesBoxWidth).
 		Height(tablesBoxHeight).
 		Render(tablesContent)

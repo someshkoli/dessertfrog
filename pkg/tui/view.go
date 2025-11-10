@@ -1,38 +1,38 @@
 package tui
 
+import (
+	"strings"
+
+	"github.com/charmbracelet/lipgloss"
+)
+
 // View renders the UI
 func (m Model) View() string {
 	// Calculate available dimensions
 	availableWidth := m.width - 6   // Account for screen border padding (1+1) and border (1+1) and margin
 	availableHeight := m.height - 6 // Account for screen border, title, status line
 
-	// Build the inner content
-	var content string
+	// Build the main content (without help and status line)
+	var mainContent string
+	var helpMessage string
 
 	// Check if in table view mode
 	if m.tableViewMode {
 		// Render table data view
 		title := m.renderTableDataTitle()
-		content += title + "\n"
+		mainContent += title + "\n"
 
 		tableDataView := m.renderTableDataView()
-		content += tableDataView + "\n"
+		mainContent += tableDataView
 
 		// Inline search bar for content filtering
 		if m.inlineSearchMode {
-			content += "\n"
 			searchBar := m.renderInlineSearchBar()
-			content += searchBar + "\n"
-			help := helpStyle.Render("Enter: apply filter | Esc: cancel")
-			content += help
+			helpMessage = searchBar + "\n" + helpStyle.Render("Enter: apply filter | Esc: cancel")
 		} else if m.commandMode {
-			content += "\n"
 			cmdLine := commandLineStyle.Render(m.commandBuffer + "█")
-			content += cmdLine + "\n"
-			help := helpStyle.Render("Enter: execute | Esc: cancel")
-			content += help
+			helpMessage = cmdLine + "\n" + helpStyle.Render("Enter: execute | Esc: cancel")
 		} else if m.sqlQueryMode {
-			content += "\n" // Add spacing before SQL input
 			sqlPrompt := "SQL Query: "
 			// Insert cursor at the correct position (using runes for UTF-8)
 			runes := []rune(m.sqlQueryInput)
@@ -46,10 +46,7 @@ func (m Model) View() string {
 			beforeCursor := string(runes[:cursorPos])
 			afterCursor := string(runes[cursorPos:])
 			sqlInput := commandLineStyle.Render(sqlPrompt + beforeCursor + "█" + afterCursor)
-			content += sqlInput
-			content += "\n"
-			help := helpStyle.Render("Enter: execute | Esc: cancel")
-			content += help
+			helpMessage = sqlInput + "\n" + helpStyle.Render("Enter: execute | Esc: cancel")
 		} else {
 			// Show help text with 's' to view/edit query
 			var helpText string
@@ -67,42 +64,50 @@ func (m Model) View() string {
 					helpText = "i: edit | v: view | V: record | y: copy | Y: row | /: filter | hjkl: move | n/p: page | s: query | q: quit"
 				}
 			}
-			help := helpStyle.Render(helpText)
-			content += help
+			helpMessage = helpStyle.Render(helpText)
 		}
 	} else {
-		// Normal table list view
+		// Normal table list view with split view (tables on left, schema on right)
+		// Row 1: Title
 		title := titleStyle.Render("dessertfrog - Database Browser")
-		content += title + "\n\n"
+		mainContent += title + "\n"
 
 		// If connection failed, show error prominently instead of tables
 		if m.connectionStatus == ConnectionFailed {
 			errorBox := m.renderConnectionError()
-			content += errorBox + "\n\n"
+			mainContent += errorBox
 		} else if !m.sqlQueryMode {
-			// Only show tables when not in SQL query mode
-			// Inline search bar
+			// Row 2: Split view - tables list on left, schema panel on right
+			splitWidth := availableWidth / 2
+
+			// Calculate panel height - pass directly, let functions handle internally
+			panelHeight := availableHeight
 			if m.inlineSearchMode {
-				searchBar := m.renderInlineSearchBar()
-				content += searchBar + "\n\n"
+				panelHeight = availableHeight - 3 // Account for search bar
 			}
 
-			// Tables box - adjust height if inline search is active
-			adjustedHeight := availableHeight
+			// Left side: tables list
+			tablesBox := m.renderTablesBox(splitWidth-1, panelHeight)
+
+			// Right side: schema panel
+			schemaPanel := m.renderSchemaPanel(splitWidth-1, panelHeight)
+
+			// Join left and right panels horizontally
+			splitView := lipgloss.JoinHorizontal(lipgloss.Top, tablesBox, schemaPanel)
+			mainContent += splitView
+
+			// Row 3: Filter box (if active)
 			if m.inlineSearchMode {
-				adjustedHeight = availableHeight - 4 // Account for search bar height
+				mainContent += "\n"
+				searchBar := m.renderInlineSearchBar()
+				mainContent += searchBar
 			}
-			tablesBox := m.renderTablesBox(availableWidth, adjustedHeight)
-			content += tablesBox + "\n\n"
-		} else {
-			// When SQL query mode is active, add some spacing
-			content += "\n"
 		}
 
 		// Command line, SQL query, or help text
 		if m.commandMode {
 			cmdLine := commandLineStyle.Render(m.commandBuffer)
-			content += cmdLine
+			helpMessage = cmdLine
 		} else if m.sqlQueryMode {
 			sqlPrompt := "SQL Query: "
 			// Insert cursor at the correct position (using runes for UTF-8)
@@ -117,29 +122,41 @@ func (m Model) View() string {
 			beforeCursor := string(runes[:cursorPos])
 			afterCursor := string(runes[cursorPos:])
 			sqlInput := commandLineStyle.Render(sqlPrompt + beforeCursor + "█" + afterCursor)
-			content += sqlInput
-			content += "\n"
-			help := helpStyle.Render("Enter: execute | Esc: cancel")
-			content += help
+			helpMessage = sqlInput + "\n" + helpStyle.Render("Enter: execute | Esc: cancel")
 		} else if m.inlineSearchMode {
-			help := helpStyle.Render("↑/↓: navigate | Tab: autocomplete | Esc: clear filter | Enter: open table")
-			content += help
+			helpMessage = helpStyle.Render("↑/↓: navigate | Tab: autocomplete | Esc: clear filter | Enter: open table")
 		} else {
-			help := helpStyle.Render("/: filter | Ctrl+P: search | s: SQL query | j/k: scroll | Enter: view | g/G: top/bot | q: quit")
-			content += help
+			helpMessage = helpStyle.Render("/: filter | Ctrl+P: search | s: SQL query | Tab: switch panel | j/k: scroll | Enter: view | g/G: top/bot | q: quit")
 		}
 	}
 
-	content += "\n\n"
-
 	// Status line at the bottom
 	statusLine := m.renderStatusLine()
-	content += statusLine
+
+	// Calculate remaining height to push help and status to bottom
+	// We need to fill the space between mainContent and help/status
+	contentHeight := m.height - 7 // Account for borders, help, status, spacing
+	if contentHeight < 10 {
+		contentHeight = 10
+	}
+
+	// Use height to ensure help and status are at bottom
+	paddedMainContent := lipgloss.NewStyle().Height(contentHeight).Render(mainContent)
+
+	// Build final content with help and status at bottom
+	content := lipgloss.JoinVertical(lipgloss.Left,
+		paddedMainContent,
+		"",
+		helpMessage,
+		"",
+		statusLine,
+	)
 
 	// Wrap everything in the screen border
 	screenBorder := screenBorderStyle
 	if m.height > 0 {
-		screenBorder = screenBorder.Height(m.height - 4)
+		// Set border height to fill terminal (account for border lines)
+		screenBorder = screenBorder.Height(m.height - 2)
 	}
 
 	mainView := screenBorder.Render(content)
@@ -167,7 +184,7 @@ func (m Model) View() string {
 	// Render debug overlay if active (always on top)
 	if m.debugMode {
 		debugOverlay := m.renderDebugOverlay()
-		mainView = mainView + "\n\n" + debugOverlay
+		mainView = mainView + "\n" + debugOverlay
 	}
 
 	// Render debug detail popup if active (highest priority)
@@ -175,7 +192,8 @@ func (m Model) View() string {
 		return m.renderDebugDetailPopup()
 	}
 
-	return mainView
+	// Remove any trailing newlines to eliminate extra padding
+	return strings.TrimRight(mainView, "\n")
 }
 
 // renderInlineSearchBar renders the inline search bar on the main view
@@ -191,5 +209,11 @@ func (m Model) renderInlineSearchBar() string {
 		inputText = searchPrompt + m.inlineSearchQuery + cursorChar
 	}
 
-	return searchInputStyle.Render(inputText)
+	// Choose style based on focus - active when not in schema panel
+	inputStyle := activeSearchInputStyle
+	if m.schemaPanelFocused {
+		inputStyle = inactiveSearchInputStyle
+	}
+
+	return inputStyle.Render(inputText)
 }

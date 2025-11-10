@@ -63,7 +63,7 @@ func (m Model) renderCellValuePopup(mainView string) string {
 	helpStyle := lipgloss.NewStyle().
 		Foreground(lipgloss.Color("241"))
 
-	popupContent := fmt.Sprintf("%s\n\n%s\n\n%s",
+	popupContent := fmt.Sprintf("%s\n%s\n%s",
 		titleStyle.Render(title),
 		content.String(),
 		helpStyle.Render(helpText))

@@ -35,6 +35,16 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.selectedRow = 0
 		m.scrollOffset = 0
 
+		// Update schema panel line count for first table
+		m = m.updateSchemaPanelLineCount()
+
+		// Start loading detailed schema for first table
+		if len(m.tables) > 0 {
+			m.schemaInfoLoading = true
+			m.schemaInfo = nil
+			return m, fetchSchemaInfo(m.driver, m.tables[0].SchemaName, m.tables[0].TableName)
+		}
+
 		// Push initial home state to history
 		m = m.pushHistory()
 
@@ -100,6 +110,20 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case tableSchemaLoadFailedMsg:
 		// Schema load failed - not critical, log and continue
 		m = m.debugLog("Failed to load table schema: %v", msg.err)
+		return m, nil
+
+	case schemaInfoLoadedMsg:
+		// Schema info loaded successfully for schema panel
+		m.schemaInfoLoading = false
+		m.schemaInfo = msg.schema
+		// Update line count with new detailed schema
+		m = m.updateSchemaPanelLineCount()
+		return m, nil
+
+	case schemaInfoLoadFailedMsg:
+		// Schema info load failed - not critical
+		m.schemaInfoLoading = false
+		m = m.debugLog("Failed to load schema info: %v", msg.err)
 		return m, nil
 
 	case sqlQueryResultMsg:

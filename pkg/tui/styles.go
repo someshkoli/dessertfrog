@@ -18,6 +18,16 @@ var (
 			BorderForeground(lipgloss.Color("#808080")).
 			Padding(0, 1)
 
+	activeBorderStyle = lipgloss.NewStyle().
+				Border(lipgloss.RoundedBorder()).
+				BorderForeground(lipgloss.Color("#7D56F4")).
+				Padding(0, 1)
+
+	inactiveBorderStyle = lipgloss.NewStyle().
+				Border(lipgloss.RoundedBorder()).
+				BorderForeground(lipgloss.Color("#4A4A4A")).
+				Padding(0, 1)
+
 	infoBorderStyle = lipgloss.NewStyle().
 				Border(lipgloss.RoundedBorder()).
 				BorderForeground(lipgloss.Color("#808080")).
@@ -26,7 +36,7 @@ var (
 	screenBorderStyle = lipgloss.NewStyle().
 				Border(lipgloss.ThickBorder()).
 				BorderForeground(lipgloss.Color("#808080")).
-				Padding(1, 1)
+				Padding(0, 1)
 
 	statusBoxStyle = lipgloss.NewStyle().
 			Border(lipgloss.RoundedBorder()).
@@ -68,6 +78,16 @@ var (
 	searchInputStyle = lipgloss.NewStyle().
 				Border(lipgloss.RoundedBorder()).
 				BorderForeground(lipgloss.Color("#808080")).
+				Padding(0, 1)
+
+	activeSearchInputStyle = lipgloss.NewStyle().
+				Border(lipgloss.RoundedBorder()).
+				BorderForeground(lipgloss.Color("#7D56F4")).
+				Padding(0, 1)
+
+	inactiveSearchInputStyle = lipgloss.NewStyle().
+				Border(lipgloss.RoundedBorder()).
+				BorderForeground(lipgloss.Color("#4A4A4A")).
 				Padding(0, 1)
 
 	overlayStyle = lipgloss.NewStyle().

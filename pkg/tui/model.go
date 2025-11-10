@@ -157,6 +157,14 @@ type Model struct {
 
 	// Key bindings
 	keyBindings KeyBindings // Configurable key bindings
+
+	// Schema panel (right side of home screen)
+	schemaPanelFocused   bool                  // Whether schema panel has focus (vs tables list)
+	schemaPanelSelected  int                   // Selected index in schema panel
+	schemaPanelScroll    int                   // Scroll offset in schema panel
+	schemaPanelLineCount int                   // Total number of lines in schema panel
+	schemaInfo           *driver.TableSchema   // Cached detailed schema for selected table
+	schemaInfoLoading    bool                  // Whether schema info is loading
 }
 
 // NewModel creates a new TUI model with database configuration

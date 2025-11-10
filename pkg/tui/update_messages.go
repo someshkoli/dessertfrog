@@ -36,6 +36,14 @@ type tableSchemaLoadFailedMsg struct {
 	err error
 }
 
+// Schema info messages (for schema panel display)
+type schemaInfoLoadedMsg struct {
+	schema *driver.TableSchema
+}
+type schemaInfoLoadFailedMsg struct {
+	err error
+}
+
 // Clipboard messages
 type clearClipboardMsgType struct{}
 
