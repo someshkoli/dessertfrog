@@ -149,7 +149,13 @@ func (m Model) View() string {
 
 	// Calculate remaining height to push help and status to bottom
 	// We need to fill the space between mainContent and help/status
-	contentHeight := m.height - 7 // Account for borders, help, status, spacing
+	// Account for inline search bar in table view mode
+	extraLines := 0
+	if m.tableViewMode && m.inlineSearchMode {
+		extraLines = 2 // Search bar + help text
+	}
+
+	contentHeight := m.height - 7 - extraLines // Account for borders, help, status, spacing, and search bar
 	if contentHeight < 10 {
 		contentHeight = 10
 	}

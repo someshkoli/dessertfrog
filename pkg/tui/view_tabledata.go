@@ -16,7 +16,7 @@ func (m Model) renderTableDataView() string {
 
 	if m.tableDataError != "" {
 		// Calculate available width for error message
-		availableWidth := m.width - 12 // Screen padding + border
+		availableWidth := m.width - 14 // Screen padding + border
 		if availableWidth < 40 {
 			availableWidth = 40
 		}
@@ -84,9 +84,9 @@ func (m Model) renderTableDataView() string {
 		columnWidth := columnWidths[i] + 3 // +3 for " │ " separator
 
 		// Check if this column is within the visible horizontal scroll window
-		if cumulativeX + columnWidth > m.tableDataScrollX {
+		if cumulativeX+columnWidth > m.tableDataScrollX {
 			// This column starts within or after the scroll position
-			if totalWidth + columnWidth <= contentWidth {
+			if totalWidth+columnWidth <= contentWidth {
 				visibleColumns = append(visibleColumns, i)
 				totalWidth += columnWidth
 			} else {
@@ -113,7 +113,7 @@ func (m Model) renderTableDataView() string {
 		totalWidth = 0
 		for i := range m.tableColumns {
 			columnWidth := columnWidths[i] + 3
-			if totalWidth + columnWidth <= contentWidth {
+			if totalWidth+columnWidth <= contentWidth {
 				visibleColumns = append(visibleColumns, i)
 				totalWidth += columnWidth
 			} else {
