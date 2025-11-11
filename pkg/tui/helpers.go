@@ -5,6 +5,7 @@ import (
 	"strings"
 
 	"github.com/someshkoli/dessertfrog/pkg/driver"
+	"github.com/someshkoli/dessertfrog/pkg/helpers"
 )
 
 // truncate truncates a string to the specified length
@@ -16,25 +17,9 @@ func truncate(s string, maxLen int) string {
 }
 
 // fuzzyMatch performs fuzzy matching on a string
+// Uses the common helpers package
 func fuzzyMatch(query, target string) bool {
-	if query == "" {
-		return true
-	}
-
-	// Convert to lowercase for case-insensitive matching
-	query = strings.ToLower(query)
-	target = strings.ToLower(target)
-
-	queryIdx := 0
-	for _, char := range target {
-		if queryIdx < len(query) && rune(query[queryIdx]) == char {
-			queryIdx++
-		}
-		if queryIdx == len(query) {
-			return true
-		}
-	}
-	return queryIdx == len(query)
+	return helpers.FuzzyMatch(query, target)
 }
 
 // filterTables filters tables based on fuzzy search query with optional prefix

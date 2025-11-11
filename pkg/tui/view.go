@@ -46,7 +46,11 @@ func (m Model) View() string {
 			beforeCursor := string(runes[:cursorPos])
 			afterCursor := string(runes[cursorPos:])
 			sqlInput := commandLineStyle.Render(sqlPrompt + beforeCursor + "█" + afterCursor)
-			helpMessage = sqlInput + "\n" + helpStyle.Render("Enter: execute | Esc: cancel")
+			if m.sqlHistorySuggestionsVisible {
+				helpMessage = sqlInput + "\n" + helpStyle.Render("Enter: select | ↑/↓: navigate | Esc: close suggestions | Ctrl+N: toggle")
+			} else {
+				helpMessage = sqlInput + "\n" + helpStyle.Render("Enter: execute | Esc: cancel | Ctrl+N: show history")
+			}
 		} else {
 			// Show help text with 's' to view/edit query
 			var helpText string
@@ -104,6 +108,12 @@ func (m Model) View() string {
 			}
 		}
 
+		// SQL history suggestions window (if visible)
+		if m.sqlQueryMode && m.sqlHistorySuggestionsVisible && len(m.sqlHistorySuggestions) > 0 {
+			suggestionsWindow := m.renderSQLHistorySuggestionsWindow()
+			mainContent += "\n" + suggestionsWindow
+		}
+
 		// Command line, SQL query, or help text
 		if m.commandMode {
 			cmdLine := commandLineStyle.Render(m.commandBuffer)
@@ -122,7 +132,11 @@ func (m Model) View() string {
 			beforeCursor := string(runes[:cursorPos])
 			afterCursor := string(runes[cursorPos:])
 			sqlInput := commandLineStyle.Render(sqlPrompt + beforeCursor + "█" + afterCursor)
-			helpMessage = sqlInput + "\n" + helpStyle.Render("Enter: execute | Esc: cancel")
+			if m.sqlHistorySuggestionsVisible {
+				helpMessage = sqlInput + "\n" + helpStyle.Render("Enter: select | ↑/↓: navigate | Esc: cancel | Ctrl+N: toggle")
+			} else {
+				helpMessage = sqlInput + "\n" + helpStyle.Render("Enter: execute | Esc: cancel | Ctrl+N: show history")
+			}
 		} else if m.inlineSearchMode {
 			helpMessage = helpStyle.Render("↑/↓: navigate | Tab: autocomplete | Esc: clear filter | Enter: open table")
 		} else {

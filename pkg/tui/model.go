@@ -2,6 +2,7 @@ package tui
 
 import (
 	"github.com/someshkoli/dessertfrog/pkg/driver"
+	"github.com/someshkoli/dessertfrog/pkg/sqlhistory"
 )
 
 // DBConfig holds database connection information
@@ -131,11 +132,15 @@ type Model struct {
 	cellEditBufferCount int               // Number of pending edits
 
 	// SQL query mode
-	sqlQueryMode     bool   // Whether SQL query input is active
-	sqlQueryInput    string // Current SQL query being typed
-	sqlQueryCursor   int    // Cursor position in SQL query input
-	executedSQLQuery string // The SQL query that was executed (shown in title)
-	isCustomQuery    bool   // Whether current table view is from a custom SQL query
+	sqlQueryMode             bool                      // Whether SQL query input is active
+	sqlQueryInput            string                    // Current SQL query being typed
+	sqlQueryCursor           int                       // Cursor position in SQL query input
+	executedSQLQuery         string                    // The SQL query that was executed (shown in title)
+	isCustomQuery            bool                      // Whether current table view is from a custom SQL query
+	sqlHistory               *sqlhistory.History       // SQL query history for current connection
+	sqlHistorySuggestions    []sqlhistory.HistoryEntry // Filtered suggestions with timestamps
+	sqlHistorySelected       int                       // Selected index in suggestions list (-1 means no selection)
+	sqlHistorySuggestionsVisible bool                  // Whether suggestions popup is visible
 
 	// Navigation history
 	historyStack        []HistoryState // Stack of previous states
@@ -189,6 +194,21 @@ func NewModel(config DBConfig, keyBindings KeyBindings) Model {
 		drv = driver.NewPostgresDriver(driverConfig)
 	}
 
+	// Initialize SQL history for this connection
+	sqlHist, err := sqlhistory.NewHistory(
+		config.Driver,
+		config.Host,
+		config.Port,
+		config.Database,
+		config.Schema,
+		config.Username,
+		1000, // Max 1000 queries
+	)
+	if err != nil {
+		// If history initialization fails, continue without it
+		sqlHist = nil
+	}
+
 	return Model{
 		dbConfig:             config,
 		driver:               drv,
@@ -215,5 +235,9 @@ func NewModel(config DBConfig, keyBindings KeyBindings) Model {
 		cellEditBuffer:       make(map[string]string),
 		cellEditBufferCount:  0,
 		keyBindings:          keyBindings,
+		sqlHistory:           sqlHist,
+		sqlHistorySelected:   -1,
+		sqlHistorySuggestionsVisible: false,
+		sqlHistorySuggestions: make([]sqlhistory.HistoryEntry, 0),
 	}
 }

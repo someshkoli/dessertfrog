@@ -146,7 +146,14 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.queryTime = msg.queryTime
 		m.fetchTime = msg.fetchTime
 
-		// Push to history
+		// Add to SQL history
+		if m.sqlHistory != nil {
+			if err := m.sqlHistory.Add(msg.query); err != nil {
+				m = m.debugLog("Failed to add query to history: %v", err)
+			}
+		}
+
+		// Push to navigation history
 		if !m.isNavigatingHistory {
 			m = m.debugLog("  SQL query result, pushing to history")
 			m = m.pushHistory()

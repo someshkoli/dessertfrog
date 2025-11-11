@@ -460,6 +460,8 @@ func (m Model) handleNormalModeKeys(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 			m.sqlQueryMode = true
 			m.sqlQueryInput = ""
 			m.sqlQueryCursor = 0
+			// Show suggestions on open (shows recent queries)
+			m = m.updateSQLHistorySuggestions()
 
 		case CommandQuit:
 			return m, tea.Quit
@@ -668,6 +670,8 @@ func (m Model) handleTableViewModeKeys(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 				m.sqlQueryInput = ""
 				m.sqlQueryCursor = 0
 			}
+			// Show suggestions on open
+			m = m.updateSQLHistorySuggestions()
 
 		case CommandFilterContent:
 			m.inlineSearchMode = true
@@ -1005,22 +1009,74 @@ func (m Model) handleSQLQueryModeKeys(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	key := msg.String()
 	runes := []rune(m.sqlQueryInput)
 
+	// Handle up/down for history suggestions navigation
+	if key == "up" || key == "ctrl+k" {
+		if m.sqlHistorySuggestionsVisible && len(m.sqlHistorySuggestions) > 0 {
+			m.sqlHistorySelected--
+			if m.sqlHistorySelected < 0 {
+				m.sqlHistorySelected = len(m.sqlHistorySuggestions) - 1
+			}
+			return m, nil
+		}
+	} else if key == "down" || key == "ctrl+j" {
+		if m.sqlHistorySuggestionsVisible && len(m.sqlHistorySuggestions) > 0 {
+			m.sqlHistorySelected++
+			if m.sqlHistorySelected >= len(m.sqlHistorySuggestions) {
+				m.sqlHistorySelected = 0
+			}
+			return m, nil
+		}
+	} else if key == "ctrl+n" {
+		// Ctrl+N to toggle suggestions visibility
+		if m.sqlHistory != nil {
+			m.sqlHistorySuggestionsVisible = !m.sqlHistorySuggestionsVisible
+			if m.sqlHistorySuggestionsVisible {
+				m.sqlHistorySuggestions = m.sqlHistory.SearchEntries(m.sqlQueryInput)
+				if len(m.sqlHistorySuggestions) > 0 {
+					m.sqlHistorySelected = 0
+				} else {
+					m.sqlHistorySelected = -1
+				}
+			}
+			return m, nil
+		}
+	}
+
 	// Check key bindings for commands
 	if cmd, ok := getCommand(key, m.keyBindings.SQLQuery); ok {
 		switch cmd {
 		case CommandConfirm:
-			// Execute the SQL query
+			// If suggestions are visible, select the highlighted suggestion
+			if m.sqlHistorySuggestionsVisible && m.sqlHistorySelected >= 0 && m.sqlHistorySelected < len(m.sqlHistorySuggestions) {
+				m.sqlQueryInput = m.sqlHistorySuggestions[m.sqlHistorySelected].Query
+				m.sqlQueryCursor = len([]rune(m.sqlQueryInput))
+				m.sqlHistorySuggestionsVisible = false
+				m.sqlHistorySelected = -1
+				return m, nil
+			}
+
+			// Otherwise, execute the SQL query
 			if m.sqlQueryInput != "" {
 				m.sqlQueryMode = false
+				m.sqlHistorySuggestionsVisible = false
+				m.sqlHistorySelected = -1
+				m.tableViewMode = true
 				m.tableDataLoading = true
 				return m, executeSQLQuery(m.driver, m.sqlQueryInput)
 			}
+			// If input is empty, just stay in SQL query mode
+			return m, nil
 
 		case CommandCancel:
-			// Cancel SQL query mode
-			m.sqlQueryMode = false
-			m.sqlQueryInput = ""
-			m.sqlQueryCursor = 0
+			// Cancel SQL query mode or close suggestions
+			if m.sqlHistorySuggestionsVisible {
+				m.sqlHistorySuggestionsVisible = false
+				m.sqlHistorySelected = -1
+			} else {
+				m.sqlQueryMode = false
+				m.sqlQueryInput = ""
+				m.sqlQueryCursor = 0
+			}
 
 		case CommandCursorLeft:
 			if m.sqlQueryCursor > 0 {
@@ -1043,12 +1099,16 @@ func (m Model) handleSQLQueryModeKeys(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 				runes = append(runes[:m.sqlQueryCursor-1], runes[m.sqlQueryCursor:]...)
 				m.sqlQueryInput = string(runes)
 				m.sqlQueryCursor--
+				// Update suggestions based on new input
+				m = m.updateSQLHistorySuggestions()
 			}
 
 		case CommandDeleteChar:
 			if m.sqlQueryCursor >= 0 && m.sqlQueryCursor < len(runes) {
 				runes = append(runes[:m.sqlQueryCursor], runes[m.sqlQueryCursor+1:]...)
 				m.sqlQueryInput = string(runes)
+				// Update suggestions based on new input
+				m = m.updateSQLHistorySuggestions()
 			}
 
 		case CommandQuit:
@@ -1057,12 +1117,10 @@ func (m Model) handleSQLQueryModeKeys(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	} else {
 		// Handle text input (default case)
 		keyStr := msg.String()
-		if len(keyStr) == 1 || keyStr == "space" || keyStr == "tab" {
+		if len(keyStr) == 1 || keyStr == "space" {
 			var charToInsert rune
 			if keyStr == "space" {
 				charToInsert = ' '
-			} else if keyStr == "tab" {
-				charToInsert = '\t'
 			} else {
 				charToInsert = []rune(keyStr)[0]
 			}
@@ -1070,11 +1128,39 @@ func (m Model) handleSQLQueryModeKeys(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 				runes = append(runes[:m.sqlQueryCursor], append([]rune{charToInsert}, runes[m.sqlQueryCursor:]...)...)
 				m.sqlQueryInput = string(runes)
 				m.sqlQueryCursor++
+				// Update suggestions based on new input
+				m = m.updateSQLHistorySuggestions()
 			}
 		}
 	}
 
 	return m, nil
+}
+
+// updateSQLHistorySuggestions updates the history suggestions based on current input
+// This enables live search - suggestions appear automatically as you type
+func (m Model) updateSQLHistorySuggestions() Model {
+	if m.sqlHistory == nil {
+		return m
+	}
+
+	// Always search and show suggestions when typing (live search)
+	m.sqlHistorySuggestions = m.sqlHistory.SearchEntries(m.sqlQueryInput)
+
+	// Show suggestions automatically if we have matches
+	if len(m.sqlHistorySuggestions) > 0 {
+		m.sqlHistorySuggestionsVisible = true
+		// Reset selection to first item if out of bounds
+		if m.sqlHistorySelected < 0 || m.sqlHistorySelected >= len(m.sqlHistorySuggestions) {
+			m.sqlHistorySelected = 0
+		}
+	} else {
+		// Hide suggestions if no matches
+		m.sqlHistorySuggestionsVisible = false
+		m.sqlHistorySelected = -1
+	}
+
+	return m
 }
 
 // handleCellEditModeKeys handles keyboard input in cell edit mode

@@ -39,7 +39,13 @@ func (m Model) pushHistory() Model {
 	m = m.debugLog("History pushed: index=%d, stack_size=%d", m.historyIndex, len(m.historyStack))
 	for _, history := range m.historyStack {
 		if history.tableViewMode {
-			m = m.debugLog("History elements: %s", history.currentViewTable.TableName)
+			if history.currentViewTable != nil {
+				m = m.debugLog("History elements: %s", history.currentViewTable.TableName)
+			} else if history.isCustomQuery {
+				m = m.debugLog("History elements: custom query")
+			} else {
+				m = m.debugLog("History elements: table (unknown)")
+			}
 		} else {
 			m = m.debugLog("History elements: home")
 		}

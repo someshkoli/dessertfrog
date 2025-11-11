@@ -26,16 +26,19 @@ func (m Model) renderTablesContent(visibleRows, contentWidth int) string {
 		}
 	}
 
-	// Build table list header
-	content := fmt.Sprintf("%-50s %-12s %-12s\n", "Table Name", "Columns", "Rows")
+	// Calculate dynamic column widths
+	tableNameWidth := contentWidth - 28 // Reserve 28 chars for Columns and Rows columns
+	if tableNameWidth < 20 {
+		tableNameWidth = 20
+	}
+
+	// Build table list header with right-aligned Columns and Rows
+	content := fmt.Sprintf("%-*s %10s %12s\n", tableNameWidth, "Table Name", "Columns", "Rows")
 
 	// Generate separator line based on content width (account for padding)
 	separatorWidth := contentWidth - 4 // Account for border padding
 	if separatorWidth < 10 {
 		separatorWidth = 10
-	}
-	if separatorWidth > 74 { // Header is 74 chars (50+12+12)
-		separatorWidth = 74
 	}
 	separator := ""
 	for i := 0; i < separatorWidth; i++ {
@@ -73,8 +76,10 @@ func (m Model) renderTablesContent(visibleRows, contentWidth int) string {
 			rowCountStr = "N/A"
 		}
 
-		rowText := fmt.Sprintf("%-50s %-12d %-12s",
-			truncate(table.TableName, 50),
+		// Format with dynamic table name width and right-aligned numeric columns
+		rowText := fmt.Sprintf("%-*s %10d %12s",
+			tableNameWidth,
+			truncate(table.TableName, tableNameWidth),
 			columnCount,
 			rowCountStr,
 		)

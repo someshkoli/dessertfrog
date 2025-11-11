@@ -11,7 +11,7 @@ import (
 // renderSchemaPanel renders the schema information panel on the right side
 func (m Model) renderSchemaPanel(width, availableHeight int) string {
 	// Calculate panel height same as tables box
-	panelWidth := width - 2
+	panelWidth := width + 1
 	if panelWidth < 30 {
 		panelWidth = 30
 	}

@@ -37,6 +37,11 @@ func (p *PostgresDriver) Connect(ctx context.Context) error {
 		p.config.SSLMode,
 	)
 
+	// Add search_path to connection string if schema is specified
+	if p.config.Schema != "" {
+		connString += fmt.Sprintf(" search_path=%s", p.config.Schema)
+	}
+
 	// Create connection pool
 	pool, err := pgxpool.New(ctx, connString)
 	if err != nil {
