@@ -86,7 +86,7 @@ func (m Model) renderTablesContent(visibleRows, contentWidth int) string {
 
 		// Highlight selected row
 		if i == m.selectedRow {
-			rowText = selectedRowStyle.Render(rowText)
+			rowText = m.styles.SelectedRowStyle.Render(rowText)
 		}
 
 		content += rowText + "\n"
@@ -147,9 +147,9 @@ func (m Model) renderTablesBox(availableWidth, availableHeight int) string {
 	tablesContent := m.renderTablesContent(visibleRows, tablesBoxWidth)
 
 	// Choose border style based on focus
-	boxBorderStyle := inactiveBorderStyle
+	boxBorderStyle := m.styles.InactiveBorderStyle
 	if !m.schemaPanelFocused {
-		boxBorderStyle = activeBorderStyle
+		boxBorderStyle = m.styles.ActiveBorderStyle
 	}
 
 	// Create styled tables box with maximum size

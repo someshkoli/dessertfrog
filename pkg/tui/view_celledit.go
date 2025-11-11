@@ -31,7 +31,7 @@ func (m Model) renderCellEditPopup(mainView string) string {
 	if m.cellEditBufferCount > 0 {
 		title += fmt.Sprintf("  [%d pending]", m.cellEditBufferCount)
 	}
-	content += titleStyle.Render(title) + "\n\n"
+	content += m.styles.TitleStyle.Render(title) + "\n\n"
 
 	// Editable input with cursor
 	runes := []rune(m.cellEditValue)
@@ -52,36 +52,27 @@ func (m Model) renderCellEditPopup(mainView string) string {
 	}
 
 	// Multi-line text area style - smaller height
-	inputBox := lipgloss.NewStyle().
-		Border(lipgloss.RoundedBorder()).
-		BorderForeground(lipgloss.Color("62")).
-		Padding(0, 1).
-		Width(contentWidth).
-		Height(3)
+	inputBox := m.styles.CellEditInputBoxStyle.Copy().
+		Width(contentWidth)
 
 	inputText := beforeCursor + "█" + afterCursor
 	content += inputBox.Render(inputText) + "\n"
 
 	// Help text or command mode
 	if m.cellEditCommandMode {
-		cmdText := commandLineStyle.Render(m.cellEditCommand + "█")
+		cmdText := m.styles.CommandLineStyle.Render(m.cellEditCommand + "█")
 		content += cmdText + "\n"
 		if m.cellEditBufferCount > 0 {
-			content += helpStyle.Render("Enter: execute | Esc: cancel | :w saves all pending edits")
+			content += m.styles.HelpStyle.Render("Enter: execute | Esc: cancel | :w saves all pending edits")
 		} else {
-			content += helpStyle.Render("Enter: execute | Esc: cancel")
+			content += m.styles.HelpStyle.Render("Enter: execute | Esc: cancel")
 		}
 	} else {
-		content += helpStyle.Render("Enter: save to buffer  Ctrl+Enter: newline  :w commit all  Esc: cancel")
+		content += m.styles.HelpStyle.Render("Enter: save to buffer  Ctrl+Enter: newline  :w commit all  Esc: cancel")
 	}
 
 	// Create popup box - don't set fixed width or height, let content determine it
-	popupStyle := lipgloss.NewStyle().
-		Border(lipgloss.RoundedBorder()).
-		BorderForeground(lipgloss.Color("62")).
-		Padding(1, 2)
-
-	popup := popupStyle.Render(content)
+	popup := m.styles.CellEditPopupStyle.Render(content)
 
 	// Overlay on main view
 	return lipgloss.Place(

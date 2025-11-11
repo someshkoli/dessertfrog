@@ -1,119 +1,360 @@
 package tui
 
-import "github.com/charmbracelet/lipgloss"
+import (
+	"github.com/charmbracelet/lipgloss"
+	"github.com/someshkoli/dessertfrog/pkg/config"
+)
 
-// Styles for the TUI application
-var (
+// Styles holds all styled components for the TUI
+type Styles struct {
 	// Title and text styles
-	titleStyle = lipgloss.NewStyle().
-			Bold(true).
-			Foreground(lipgloss.Color("#7D56F4"))
-
-	helpStyle = lipgloss.NewStyle().
-			Foreground(lipgloss.Color("#626262"))
+	TitleStyle                lipgloss.Style
+	HelpStyle                 lipgloss.Style
 
 	// Border styles
-	borderStyle = lipgloss.NewStyle().
-			Border(lipgloss.RoundedBorder()).
-			BorderForeground(lipgloss.Color("#808080")).
-			Padding(0, 1)
-
-	activeBorderStyle = lipgloss.NewStyle().
-				Border(lipgloss.RoundedBorder()).
-				BorderForeground(lipgloss.Color("#7D56F4")).
-				Padding(0, 1)
-
-	inactiveBorderStyle = lipgloss.NewStyle().
-				Border(lipgloss.RoundedBorder()).
-				BorderForeground(lipgloss.Color("#4A4A4A")).
-				Padding(0, 1)
-
-	infoBorderStyle = lipgloss.NewStyle().
-				Border(lipgloss.RoundedBorder()).
-				BorderForeground(lipgloss.Color("#808080")).
-				Padding(0, 1)
-
-	screenBorderStyle = lipgloss.NewStyle().
-				Border(lipgloss.ThickBorder()).
-				BorderForeground(lipgloss.Color("#808080")).
-				Padding(0, 1)
-
-	statusBoxStyle = lipgloss.NewStyle().
-			Border(lipgloss.RoundedBorder()).
-			BorderForeground(lipgloss.Color("#808080")).
-			Padding(0, 1)
+	BorderStyle               lipgloss.Style
+	ActiveBorderStyle         lipgloss.Style
+	InactiveBorderStyle       lipgloss.Style
+	InfoBorderStyle           lipgloss.Style
+	ScreenBorderStyle         lipgloss.Style
+	StatusBoxStyle            lipgloss.Style
 
 	// Connection status styles
-	connectedStyle = lipgloss.NewStyle().
-			Foreground(lipgloss.Color("#00FF00")).
-			Bold(true)
-
-	disconnectedStyle = lipgloss.NewStyle().
-				Foreground(lipgloss.Color("#FF0000")).
-				Bold(true)
-
-	connectingStyle = lipgloss.NewStyle().
-			Foreground(lipgloss.Color("#FFFF00")).
-			Bold(true)
+	ConnectedStyle            lipgloss.Style
+	DisconnectedStyle         lipgloss.Style
+	ConnectingStyle           lipgloss.Style
 
 	// Command mode styles
-	commandLineStyle = lipgloss.NewStyle().
-				Foreground(lipgloss.Color("#FAFAFA")).
-				Background(lipgloss.Color("#7D56F4")).
-				Padding(0, 1)
+	CommandLineStyle          lipgloss.Style
 
 	// Table selection styles
-	selectedRowStyle = lipgloss.NewStyle().
-				Background(lipgloss.Color("#7D56F4")).
-				Foreground(lipgloss.Color("#FFFFFF")).
-				Bold(true)
+	SelectedRowStyle          lipgloss.Style
 
 	// Search popup styles
-	popupStyle = lipgloss.NewStyle().
-			Border(lipgloss.RoundedBorder()).
-			BorderForeground(lipgloss.Color("#7D56F4")).
-			Padding(1, 2).
-			Background(lipgloss.Color("#1a1a1a"))
+	PopupStyle                lipgloss.Style
+	SearchInputStyle          lipgloss.Style
+	ActiveSearchInputStyle    lipgloss.Style
+	InactiveSearchInputStyle  lipgloss.Style
+	OverlayStyle              lipgloss.Style
 
-	searchInputStyle = lipgloss.NewStyle().
-				Border(lipgloss.RoundedBorder()).
-				BorderForeground(lipgloss.Color("#808080")).
-				Padding(0, 1)
-
-	activeSearchInputStyle = lipgloss.NewStyle().
-				Border(lipgloss.RoundedBorder()).
-				BorderForeground(lipgloss.Color("#7D56F4")).
-				Padding(0, 1)
-
-	inactiveSearchInputStyle = lipgloss.NewStyle().
-				Border(lipgloss.RoundedBorder()).
-				BorderForeground(lipgloss.Color("#4A4A4A")).
-				Padding(0, 1)
-
-	overlayStyle = lipgloss.NewStyle().
-			Background(lipgloss.Color("#000000")).
-			Foreground(lipgloss.Color("#FFFFFF"))
-
-	// Ghost text style for autocomplete suggestions
-	ghostTextStyle = lipgloss.NewStyle().
-			Foreground(lipgloss.Color("#666666")).
-			Faint(true)
+	// Ghost text style
+	GhostTextStyle            lipgloss.Style
 
 	// Status line styles
-	statusLineStyle = lipgloss.NewStyle().
-			Background(lipgloss.Color("#2C2C2C")).
-			Foreground(lipgloss.Color("#FFFFFF")).
-			Padding(0, 0).
-			Inline(true)
-
-	statusLineLeftStyle = lipgloss.NewStyle().
-			Foreground(lipgloss.Color("#AAAAAA"))
+	StatusLineStyle           lipgloss.Style
+	StatusLineLeftStyle       lipgloss.Style
 
 	// Error box style
-	errorBoxStyle = lipgloss.NewStyle().
+	ErrorBoxStyle             lipgloss.Style
+
+	// Schema panel styles
+	SchemaTitleStyle          lipgloss.Style
+	SchemaSectionStyle        lipgloss.Style
+	SchemaFieldStyle          lipgloss.Style
+	SchemaColumnNameStyle     lipgloss.Style
+	SchemaTypeStyle           lipgloss.Style
+	SchemaPrimaryKeyStyle     lipgloss.Style
+	SchemaForeignKeyStyle     lipgloss.Style
+	SchemaEmptyStyle          lipgloss.Style
+	SchemaLoadingStyle        lipgloss.Style
+
+	// Cell edit styles
+	CellEditInputBoxStyle     lipgloss.Style
+	CellEditPopupStyle        lipgloss.Style
+	CellPendingEditStyle      lipgloss.Style
+
+	// Table data styles
+	TableFilterStyle          lipgloss.Style
+	TableClipboardStyle       lipgloss.Style
+
+	// SQL history styles
+	SQLHistoryTitleStyle      lipgloss.Style
+	SQLHistoryCountStyle      lipgloss.Style
+	SQLHistorySelectedStyle   lipgloss.Style
+	SQLHistoryNormalStyle     lipgloss.Style
+	SQLHistoryBorderStyle     lipgloss.Style
+
+	// Record/Cell popup styles
+	RecordPopupStyle          lipgloss.Style
+	RecordKeyStyle            lipgloss.Style
+	RecordValueStyle          lipgloss.Style
+	RecordJSONIndicatorStyle  lipgloss.Style
+
+	// JSON tree styles (for cell popup)
+	JSONKeyStyle              lipgloss.Style
+	JSONValueStyle            lipgloss.Style
+	JSONTypeStyle             lipgloss.Style
+
+	// Debug panel styles
+	DebugBorderStyle          lipgloss.Style
+	DebugTitleStyle           lipgloss.Style
+	DebugSectionStyle         lipgloss.Style
+	DebugLogStyle             lipgloss.Style
+	DebugSelectedStyle        lipgloss.Style
+	DebugFocusIndicatorStyle  lipgloss.Style
+	DebugLeftColumnStyle      lipgloss.Style
+	DebugRightColumnStyle     lipgloss.Style
+	DebugContentStyle         lipgloss.Style
+}
+
+// NewStyles creates a new Styles instance from a color scheme
+func NewStyles(scheme config.ColorSchemeConfig) Styles {
+	return Styles{
+		// Title and text styles
+		TitleStyle: lipgloss.NewStyle().
+			Bold(true).
+			Foreground(lipgloss.Color(scheme.Primary)),
+
+		HelpStyle: lipgloss.NewStyle().
+			Foreground(lipgloss.Color(scheme.HelpText)),
+
+		// Border styles
+		BorderStyle: lipgloss.NewStyle().
 			Border(lipgloss.RoundedBorder()).
-			BorderForeground(lipgloss.Color("#FF0000")).
+			BorderForeground(lipgloss.Color(scheme.BorderNormal)).
+			Padding(0, 1),
+
+		ActiveBorderStyle: lipgloss.NewStyle().
+			Border(lipgloss.RoundedBorder()).
+			BorderForeground(lipgloss.Color(scheme.BorderActive)).
+			Padding(0, 1),
+
+		InactiveBorderStyle: lipgloss.NewStyle().
+			Border(lipgloss.RoundedBorder()).
+			BorderForeground(lipgloss.Color(scheme.BorderInactive)).
+			Padding(0, 1),
+
+		InfoBorderStyle: lipgloss.NewStyle().
+			Border(lipgloss.RoundedBorder()).
+			BorderForeground(lipgloss.Color(scheme.BorderNormal)).
+			Padding(0, 1),
+
+		ScreenBorderStyle: lipgloss.NewStyle().
+			Border(lipgloss.ThickBorder()).
+			BorderForeground(lipgloss.Color(scheme.BorderNormal)).
+			Padding(0, 1),
+
+		StatusBoxStyle: lipgloss.NewStyle().
+			Border(lipgloss.RoundedBorder()).
+			BorderForeground(lipgloss.Color(scheme.BorderNormal)).
+			Padding(0, 1),
+
+		// Connection status styles
+		ConnectedStyle: lipgloss.NewStyle().
+			Foreground(lipgloss.Color(scheme.StatusConnected)).
+			Bold(true),
+
+		DisconnectedStyle: lipgloss.NewStyle().
+			Foreground(lipgloss.Color(scheme.StatusDisconnected)).
+			Bold(true),
+
+		ConnectingStyle: lipgloss.NewStyle().
+			Foreground(lipgloss.Color(scheme.StatusConnecting)).
+			Bold(true),
+
+		// Command mode styles
+		CommandLineStyle: lipgloss.NewStyle().
+			Foreground(lipgloss.Color(scheme.CommandFg)).
+			Background(lipgloss.Color(scheme.CommandBg)).
+			Padding(0, 1),
+
+		// Table selection styles
+		SelectedRowStyle: lipgloss.NewStyle().
+			Background(lipgloss.Color(scheme.SelectionBg)).
+			Foreground(lipgloss.Color(scheme.SelectionFg)).
+			Bold(true),
+
+		// Search popup styles
+		PopupStyle: lipgloss.NewStyle().
+			Border(lipgloss.RoundedBorder()).
+			BorderForeground(lipgloss.Color(scheme.PopupBorder)).
+			Padding(1, 2).
+			Background(lipgloss.Color(scheme.PopupBg)),
+
+		SearchInputStyle: lipgloss.NewStyle().
+			Border(lipgloss.RoundedBorder()).
+			BorderForeground(lipgloss.Color(scheme.BorderNormal)).
+			Padding(0, 1),
+
+		ActiveSearchInputStyle: lipgloss.NewStyle().
+			Border(lipgloss.RoundedBorder()).
+			BorderForeground(lipgloss.Color(scheme.BorderActive)).
+			Padding(0, 1),
+
+		InactiveSearchInputStyle: lipgloss.NewStyle().
+			Border(lipgloss.RoundedBorder()).
+			BorderForeground(lipgloss.Color(scheme.BorderInactive)).
+			Padding(0, 1),
+
+		OverlayStyle: lipgloss.NewStyle().
+			Background(lipgloss.Color(scheme.OverlayBg)).
+			Foreground(lipgloss.Color(scheme.Foreground)),
+
+		// Ghost text style
+		GhostTextStyle: lipgloss.NewStyle().
+			Foreground(lipgloss.Color(scheme.GhostText)).
+			Faint(true),
+
+		// Status line styles
+		StatusLineStyle: lipgloss.NewStyle().
+			Background(lipgloss.Color(scheme.StatusLineBg)).
+			Foreground(lipgloss.Color(scheme.StatusLineFg)).
+			Padding(0, 0).
+			Inline(true),
+
+		StatusLineLeftStyle: lipgloss.NewStyle().
+			Foreground(lipgloss.Color(scheme.StatusText)),
+
+		// Error box style
+		ErrorBoxStyle: lipgloss.NewStyle().
+			Border(lipgloss.RoundedBorder()).
+			BorderForeground(lipgloss.Color(scheme.StatusError)).
 			Padding(2, 4).
-			Foreground(lipgloss.Color("#FF6666")).
-			Bold(true)
-)
+			Foreground(lipgloss.Color(scheme.StatusError)).
+			Bold(true),
+
+		// Schema panel styles
+		SchemaTitleStyle: lipgloss.NewStyle().
+			Bold(true).
+			Foreground(lipgloss.Color(scheme.SchemaTitle)).
+			Underline(true),
+
+		SchemaSectionStyle: lipgloss.NewStyle().
+			Bold(true).
+			Foreground(lipgloss.Color(scheme.SchemaSection)),
+
+		SchemaFieldStyle: lipgloss.NewStyle().
+			Foreground(lipgloss.Color(scheme.SchemaField)),
+
+		SchemaColumnNameStyle: lipgloss.NewStyle().
+			Foreground(lipgloss.Color(scheme.SchemaColumnName)),
+
+		SchemaTypeStyle: lipgloss.NewStyle().
+			Foreground(lipgloss.Color(scheme.SchemaType)),
+
+		SchemaPrimaryKeyStyle: lipgloss.NewStyle().
+			Foreground(lipgloss.Color(scheme.SchemaPrimaryKey)).
+			Bold(true),
+
+		SchemaForeignKeyStyle: lipgloss.NewStyle().
+			Foreground(lipgloss.Color(scheme.SchemaForeignKey)),
+
+		SchemaEmptyStyle: lipgloss.NewStyle().
+			Foreground(lipgloss.Color(scheme.SchemaEmpty)).
+			Italic(true),
+
+		SchemaLoadingStyle: lipgloss.NewStyle().
+			Foreground(lipgloss.Color(scheme.SchemaLoading)).
+			Italic(true),
+
+		// Cell edit styles
+		CellEditInputBoxStyle: lipgloss.NewStyle().
+			Border(lipgloss.RoundedBorder()).
+			BorderForeground(lipgloss.Color(scheme.PopupBorder)).
+			Padding(0, 1).
+			Height(3),
+
+		CellEditPopupStyle: lipgloss.NewStyle().
+			Border(lipgloss.RoundedBorder()).
+			BorderForeground(lipgloss.Color(scheme.PopupBorder)).
+			Padding(1, 2),
+
+		CellPendingEditStyle: lipgloss.NewStyle().
+			Foreground(lipgloss.Color(scheme.CellPendingEdit)),
+
+		// Table data styles
+		TableFilterStyle: lipgloss.NewStyle().
+			Foreground(lipgloss.Color(scheme.TableFilter)).
+			Bold(true),
+
+		TableClipboardStyle: lipgloss.NewStyle().
+			Foreground(lipgloss.Color(scheme.TableClipboard)).
+			Bold(true),
+
+		// SQL history styles
+		SQLHistoryTitleStyle: lipgloss.NewStyle().
+			Bold(true).
+			Foreground(lipgloss.Color(scheme.SQLHistoryTitle)),
+
+		SQLHistoryCountStyle: lipgloss.NewStyle().
+			Foreground(lipgloss.Color(scheme.SQLHistoryCount)),
+
+		SQLHistorySelectedStyle: lipgloss.NewStyle().
+			Foreground(lipgloss.Color(scheme.SQLHistorySelected)).
+			Background(lipgloss.Color(scheme.SelectionBg)).
+			Bold(true),
+
+		SQLHistoryNormalStyle: lipgloss.NewStyle().
+			Foreground(lipgloss.Color(scheme.SQLHistoryNormal)),
+
+		SQLHistoryBorderStyle: lipgloss.NewStyle().
+			Border(lipgloss.RoundedBorder()).
+			BorderForeground(lipgloss.Color(scheme.SQLHistoryBorder)).
+			Padding(0, 1),
+
+		// Record/Cell popup styles
+		RecordPopupStyle: lipgloss.NewStyle().
+			Border(lipgloss.RoundedBorder()).
+			BorderForeground(lipgloss.Color(scheme.PopupBorder)).
+			Padding(1, 2),
+
+		RecordKeyStyle: lipgloss.NewStyle().
+			Foreground(lipgloss.Color(scheme.JSONKey)).
+			Bold(true),
+
+		RecordValueStyle: lipgloss.NewStyle().
+			Foreground(lipgloss.Color(scheme.SchemaField)),
+
+		RecordJSONIndicatorStyle: lipgloss.NewStyle().
+			Foreground(lipgloss.Color(scheme.JSONType)).
+			Italic(true),
+
+		// JSON tree styles
+		JSONKeyStyle: lipgloss.NewStyle().
+			Foreground(lipgloss.Color(scheme.JSONKey)).
+			Bold(true),
+
+		JSONValueStyle: lipgloss.NewStyle().
+			Foreground(lipgloss.Color(scheme.JSONValue)),
+
+		JSONTypeStyle: lipgloss.NewStyle().
+			Foreground(lipgloss.Color(scheme.JSONType)).
+			Italic(true),
+
+		// Debug panel styles
+		DebugBorderStyle: lipgloss.NewStyle().
+			Border(lipgloss.RoundedBorder()).
+			BorderForeground(lipgloss.Color(scheme.BorderNormal)).
+			Padding(0, 1),
+
+		DebugTitleStyle: lipgloss.NewStyle().
+			Bold(true).
+			Foreground(lipgloss.Color(scheme.Primary)),
+
+		DebugSectionStyle: lipgloss.NewStyle().
+			Bold(true).
+			Foreground(lipgloss.Color(scheme.DebugSection)),
+
+		DebugLogStyle: lipgloss.NewStyle().
+			Foreground(lipgloss.Color(scheme.DebugLog)),
+
+		DebugSelectedStyle: lipgloss.NewStyle().
+			Foreground(lipgloss.Color(scheme.Foreground)).
+			Background(lipgloss.Color(scheme.DebugSelected)).
+			Bold(true),
+
+		DebugFocusIndicatorStyle: lipgloss.NewStyle().
+			Foreground(lipgloss.Color(scheme.DebugFocus)).
+			Bold(true),
+
+		DebugLeftColumnStyle: lipgloss.NewStyle().
+			Foreground(lipgloss.Color(scheme.DebugSection)).
+			Bold(true),
+
+		DebugRightColumnStyle: lipgloss.NewStyle().
+			Foreground(lipgloss.Color(scheme.SchemaField)),
+
+		DebugContentStyle: lipgloss.NewStyle().
+			Foreground(lipgloss.Color(scheme.SchemaField)),
+	}
+}
