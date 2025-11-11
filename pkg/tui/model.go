@@ -189,6 +189,8 @@ func NewModel(config DBConfig, keyBindings KeyBindings) Model {
 	switch config.Driver {
 	case "postgres", "postgresql":
 		drv = driver.NewPostgresDriver(driverConfig)
+	case "clickhouse", "ch":
+		drv = driver.NewClickHouseDriver(driverConfig)
 	default:
 		// For now, default to postgres
 		drv = driver.NewPostgresDriver(driverConfig)

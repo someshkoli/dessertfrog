@@ -107,17 +107,29 @@ func (m Model) renderSchemaPanel(width, availableHeight int) string {
 		m.schemaPanelScroll = 0
 	}
 
+	// Check if we need to show "more above" indicator
+	hasMoreAbove := m.schemaPanelScroll > 0
+
+	// When showing "more above", skip the first line to make room for the indicator
+	startIdx := m.schemaPanelScroll
+	if hasMoreAbove {
+		startIdx = m.schemaPanelScroll + 1
+	}
+
 	// Render visible lines
 	endIdx := m.schemaPanelScroll + visibleLines
 	if endIdx > len(allLines) {
 		endIdx = len(allLines)
 	}
 
+	// Check if we need to show "more below" indicator
+	hasMoreBelow := endIdx < len(allLines)
+
 	var content strings.Builder
 
 	// Build visible lines
 	visibleCount := 0
-	for i := m.schemaPanelScroll; i < endIdx && visibleCount < visibleLines; i++ {
+	for i := startIdx; i < endIdx && visibleCount < visibleLines; i++ {
 		line := allLines[i]
 
 		// Highlight selected line when schema panel is focused
@@ -132,10 +144,10 @@ func (m Model) renderSchemaPanel(width, availableHeight int) string {
 	content.WriteString("\n")
 
 	// Add scroll indicators (same as table pane)
-	if m.schemaPanelScroll > 0 {
+	if hasMoreAbove {
 		content.WriteString("↑ More above (k to scroll up)\n")
 	}
-	if endIdx < len(allLines) {
+	if hasMoreBelow {
 		content.WriteString("↓ More below (j to scroll down)")
 	}
 

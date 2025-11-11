@@ -28,11 +28,12 @@ var (
 // rootCmd represents the base command when called without any subcommands
 var rootCmd = &cobra.Command{
 	Use:   "dessertfrog",
-	Short: "A TUI database browser for MariaDB and PostgreSQL",
+	Short: "A TUI database browser for MariaDB, PostgreSQL, and ClickHouse",
 	Long: `dessertfrog is a terminal UI database browser that supports multiple SQL databases.
 Currently supported databases:
   - MariaDB
   - PostgreSQL
+  - ClickHouse
 
 Connect to your database and browse tables, schemas, and data with an intuitive terminal interface.`,
 	PreRunE: func(cmd *cobra.Command, args []string) error {
@@ -47,8 +48,10 @@ Connect to your database and browse tables, schemas, and data with an intuitive 
 				dbPort = 3306
 			case "postgres", "postgresql":
 				dbPort = 5432
+			case "clickhouse", "ch":
+				dbPort = 9000
 			default:
-				return fmt.Errorf("unsupported database driver: %s (supported: mariadb, postgres)", dbDriver)
+				return fmt.Errorf("unsupported database driver: %s (supported: mariadb, postgres, clickhouse)", dbDriver)
 			}
 		}
 
@@ -58,6 +61,8 @@ Connect to your database and browse tables, schemas, and data with an intuitive 
 				dbUsername = "root"
 			case "postgres", "postgresql":
 				dbUsername = "postgres"
+			case "clickhouse", "ch":
+				dbUsername = "default"
 			}
 		}
 
@@ -67,6 +72,8 @@ Connect to your database and browse tables, schemas, and data with an intuitive 
 				dbName = "mysql"
 			case "postgres", "postgresql":
 				dbName = "postgres"
+			case "clickhouse", "ch":
+				dbName = "default"
 			}
 		}
 
@@ -76,6 +83,8 @@ Connect to your database and browse tables, schemas, and data with an intuitive 
 				dbSchema = "public"
 			case "mariadb", "mysql":
 				dbSchema = "" // MySQL doesn't use schemas the same way
+			case "clickhouse", "ch":
+				dbSchema = "" // ClickHouse uses databases, not schemas
 			}
 		}
 
@@ -128,12 +137,12 @@ func init() {
 	rootCmd.Flags().StringVarP(&configFile, "config-file", "c", "", "Path to config file (default: ~/.config/dessertfrog/config.yaml)")
 
 	// Database connection flags
-	rootCmd.Flags().StringVarP(&dbDriver, "driver", "d", "postgres", "Database driver (mariadb, postgres)")
+	rootCmd.Flags().StringVarP(&dbDriver, "driver", "d", "postgres", "Database driver (mariadb, postgres, clickhouse)")
 	rootCmd.Flags().StringVarP(&dbHost, "host", "", "", "Database host (default: localhost)")
-	rootCmd.Flags().IntVarP(&dbPort, "port", "p", 0, "Database port (default: 5432 for postgres, 3306 for mariadb)")
-	rootCmd.Flags().StringVarP(&dbUsername, "username", "u", "", "Database username (default: postgres for postgres, root for mariadb)")
+	rootCmd.Flags().IntVarP(&dbPort, "port", "p", 0, "Database port (default: 5432 for postgres, 3306 for mariadb, 9000 for clickhouse)")
+	rootCmd.Flags().StringVarP(&dbUsername, "username", "u", "", "Database username (default: postgres for postgres, root for mariadb, default for clickhouse)")
 	rootCmd.Flags().StringVarP(&dbPassword, "password", "P", "", "Database password")
-	rootCmd.Flags().StringVarP(&dbName, "database", "n", "", "Database name (default: postgres for postgres, mysql for mariadb)")
+	rootCmd.Flags().StringVarP(&dbName, "database", "n", "", "Database name (default: postgres for postgres, mysql for mariadb, default for clickhouse)")
 	rootCmd.Flags().StringVarP(&dbSchema, "schema", "s", "", "Database schema (default: public for postgres)")
 
 	// Mark driver as required

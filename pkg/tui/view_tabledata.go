@@ -5,6 +5,7 @@ import (
 	"strings"
 
 	"github.com/charmbracelet/lipgloss"
+	"github.com/someshkoli/dessertfrog/pkg/helpers"
 )
 
 // renderTableDataView renders the table data view with scrollable content
@@ -26,6 +27,13 @@ func (m Model) renderTableDataView() string {
 	}
 
 	if len(m.tableData) == 0 {
+		// Check if this is a non-SELECT query (UPDATE, DELETE, INSERT, etc.)
+		if m.isCustomQuery && m.executedSQLQuery != "" {
+			queryUpper := helpers.ToUpperFirst(m.executedSQLQuery)
+			if helpers.StartsWithAny(queryUpper, []string{"UPDATE", "DELETE", "INSERT", "CREATE", "DROP", "ALTER", "TRUNCATE"}) {
+				return "Query executed successfully.\n\nNo rows returned (this is expected for UPDATE/DELETE/INSERT queries)."
+			}
+		}
 		return "No data in table"
 	}
 

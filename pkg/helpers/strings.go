@@ -88,3 +88,47 @@ func Contains(s, substr string) bool {
 	}
 	return false
 }
+
+// ToUpperFirst converts the first word of a string to uppercase
+func ToUpperFirst(s string) string {
+	if len(s) == 0 {
+		return s
+	}
+	// Find first word (up to first space or entire string)
+	endIdx := 0
+	for endIdx < len(s) && s[endIdx] != ' ' && s[endIdx] != '\t' && s[endIdx] != '\n' {
+		endIdx++
+	}
+	firstWord := s[:endIdx]
+
+	// Convert to uppercase
+	result := make([]byte, len(firstWord))
+	for i := 0; i < len(firstWord); i++ {
+		c := firstWord[i]
+		if c >= 'a' && c <= 'z' {
+			result[i] = c - ('a' - 'A')
+		} else {
+			result[i] = c
+		}
+	}
+	return string(result)
+}
+
+// StartsWithAny checks if a string starts with any of the given prefixes (case-sensitive)
+func StartsWithAny(s string, prefixes []string) bool {
+	for _, prefix := range prefixes {
+		if len(s) >= len(prefix) {
+			match := true
+			for i := 0; i < len(prefix); i++ {
+				if s[i] != prefix[i] {
+					match = false
+					break
+				}
+			}
+			if match {
+				return true
+			}
+		}
+	}
+	return false
+}
