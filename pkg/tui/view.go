@@ -57,15 +57,15 @@ func (m Model) View() string {
 			if m.cellEditBufferCount > 0 {
 				// Show :w hint when there are pending edits
 				if m.isCustomQuery {
-					helpText = "i: edit | :w: save all | v: view | y: copy | Y: row | /: filter | hjkl: move | s: query | q: quit | o: back"
+					helpText = "i: edit | :w: save all | v: view | y: copy | Y: row | /: filter | d: connections | hjkl: move | s: query | q: quit | o: back"
 				} else {
-					helpText = "i: edit | :w: save all | v: view | y: copy | Y: row | /: filter | hjkl: move | n/p: page | s: query | q: quit"
+					helpText = "i: edit | :w: save all | v: view | y: copy | Y: row | /: filter | d: connections | hjkl: move | n/p: page | s: query | q: quit"
 				}
 			} else {
 				if m.isCustomQuery {
-					helpText = "i: edit | v: view | V: record | y: copy | Y: row | /: filter | hjkl: move | s: query | q: quit | o: back"
+					helpText = "i: edit | v: view | V: record | y: copy | Y: row | /: filter | d: connections | hjkl: move | s: query | q: quit | o: back"
 				} else {
-					helpText = "i: edit | v: view | V: record | y: copy | Y: row | /: filter | hjkl: move | n/p: page | s: query | q: quit"
+					helpText = "i: edit | v: view | V: record | y: copy | Y: row | /: filter | d: connections | hjkl: move | n/p: page | s: query | q: quit"
 				}
 			}
 			helpMessage = m.styles.HelpStyle.Render(helpText)
@@ -140,7 +140,7 @@ func (m Model) View() string {
 		} else if m.inlineSearchMode {
 			helpMessage = m.styles.HelpStyle.Render("↑/↓: navigate | Tab: autocomplete | Esc: clear filter | Enter: open table")
 		} else {
-			helpMessage = m.styles.HelpStyle.Render("/: filter | Ctrl+P: search | s: SQL query | Tab: switch panel | j/k: scroll | Enter: view | g/G: top/bot | q: quit")
+			helpMessage = m.styles.HelpStyle.Render("/: filter | Ctrl+P: search | s: SQL query | d: connections | Tab: switch panel | j/k: scroll | Enter: view | g/G: top/bot | q: quit")
 		}
 	}
 
@@ -184,6 +184,11 @@ func (m Model) View() string {
 	// Render search popup overlay if active
 	if m.searchMode {
 		return m.renderSearchPopup(mainView)
+	}
+
+	// Render connection manager popup overlay if active
+	if m.connManagerMode {
+		return m.renderConnectionManagerPopup(mainView)
 	}
 
 	// Render record view popup overlay if active

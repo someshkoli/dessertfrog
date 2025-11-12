@@ -95,6 +95,17 @@ type Styles struct {
 	DebugLeftColumnStyle      lipgloss.Style
 	DebugRightColumnStyle     lipgloss.Style
 	DebugContentStyle         lipgloss.Style
+
+	// Connection manager styles
+	ConnManagerPopupStyle       lipgloss.Style
+	ConnManagerTitleStyle       lipgloss.Style
+	ConnManagerFilterStyle      lipgloss.Style
+	ConnManagerRowStyle         lipgloss.Style
+	ConnManagerInsertModeStyle  lipgloss.Style
+	ConnManagerNormalModeStyle  lipgloss.Style
+	ScrollIndicatorStyle        lipgloss.Style
+	ErrorStyle                  lipgloss.Style
+	TableRowStyle               lipgloss.Style
 }
 
 // NewStyles creates a new Styles instance from a color scheme
@@ -356,5 +367,45 @@ func NewStyles(scheme config.ColorSchemeConfig) Styles {
 
 		DebugContentStyle: lipgloss.NewStyle().
 			Foreground(lipgloss.Color(scheme.SchemaField)),
+
+		// Connection manager styles
+		ConnManagerPopupStyle: lipgloss.NewStyle().
+			Border(lipgloss.RoundedBorder()).
+			BorderForeground(lipgloss.Color(scheme.PopupBorder)).
+			Padding(1, 2).
+			Background(lipgloss.Color(scheme.PopupBg)),
+
+		ConnManagerTitleStyle: lipgloss.NewStyle().
+			Bold(true).
+			Foreground(lipgloss.Color(scheme.Primary)),
+
+		ConnManagerFilterStyle: lipgloss.NewStyle().
+			Border(lipgloss.RoundedBorder()).
+			BorderForeground(lipgloss.Color(scheme.BorderActive)).
+			Padding(0, 1),
+
+		ConnManagerRowStyle: lipgloss.NewStyle().
+			Foreground(lipgloss.Color(scheme.Foreground)),
+
+		ConnManagerInsertModeStyle: lipgloss.NewStyle().
+			Background(lipgloss.Color("10")). // Green background for insert mode
+			Foreground(lipgloss.Color("0")).  // Black text
+			Bold(true),
+
+		ConnManagerNormalModeStyle: lipgloss.NewStyle().
+			Background(lipgloss.Color("12")). // Blue background for normal mode
+			Foreground(lipgloss.Color("0")).  // Black text
+			Bold(true),
+
+		ScrollIndicatorStyle: lipgloss.NewStyle().
+			Foreground(lipgloss.Color(scheme.GhostText)).
+			Italic(true),
+
+		ErrorStyle: lipgloss.NewStyle().
+			Foreground(lipgloss.Color(scheme.StatusError)).
+			Italic(true),
+
+		TableRowStyle: lipgloss.NewStyle().
+			Foreground(lipgloss.Color(scheme.Foreground)),
 	}
 }

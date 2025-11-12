@@ -34,11 +34,12 @@ const (
 	CommandInsertNewline Command = "insert_newline"
 
 	// View commands
-	CommandOpenTable       Command = "open_table"
-	CommandOpenSearch      Command = "open_search"
-	CommandOpenSQLQuery    Command = "open_sql_query"
-	CommandOpenCommandMode Command = "open_command_mode"
-	CommandInlineSearch    Command = "inline_search"
+	CommandOpenTable             Command = "open_table"
+	CommandOpenSearch            Command = "open_search"
+	CommandOpenSQLQuery          Command = "open_sql_query"
+	CommandOpenCommandMode       Command = "open_command_mode"
+	CommandInlineSearch          Command = "inline_search"
+	CommandOpenConnectionManager Command = "open_connection_manager"
 
 	// Table view commands
 	CommandNextPage       Command = "next_page"
@@ -111,6 +112,7 @@ func DefaultKeyBindings() KeyBindings {
 			{"s", CommandOpenSQLQuery},
 			{":", CommandOpenCommandMode},
 			{"/", CommandInlineSearch},
+			{"d", CommandOpenConnectionManager},
 			{"q", CommandQuit},
 		},
 		TableView: []KeyBinding{
@@ -141,6 +143,7 @@ func DefaultKeyBindings() KeyBindings {
 			{"y", CommandCopyCellValue},
 			{"Y", CommandCopyRow},
 			{"enter", CommandOpenCellPopup},
+			{"d", CommandOpenConnectionManager},
 			{"v", CommandOpenCellPopup},
 			{"r", CommandOpenRecordView},
 			{"V", CommandOpenRecordView},

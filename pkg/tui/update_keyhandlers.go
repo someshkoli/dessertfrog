@@ -46,6 +46,11 @@ func (m Model) handleKeyPress(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		return m.handleSearchModeKeys(msg)
 	}
 
+	// Handle connection manager mode
+	if m.connManagerMode {
+		return m.handleConnectionManagerKeys(msg)
+	}
+
 	// Handle inline search mode
 	if m.inlineSearchMode {
 		return m.handleInlineSearchModeKeys(msg)
@@ -463,6 +468,17 @@ func (m Model) handleNormalModeKeys(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 			// Show suggestions on open (shows recent queries)
 			m = m.updateSQLHistorySuggestions()
 
+		case CommandOpenConnectionManager:
+			// Open connection manager popup
+			m.connManagerMode = true
+			m.connManagerFilter = ""
+			m.connManagerSelected = 0
+			m.connManagerScroll = 0
+			m.connManagerInsertMode = true // Start in insert mode
+			if m.connHistory != nil {
+				m.filteredConnections = m.connHistory.GetAll()
+			}
+
 		case CommandQuit:
 			return m, tea.Quit
 
@@ -676,6 +692,17 @@ func (m Model) handleTableViewModeKeys(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		case CommandFilterContent:
 			m.inlineSearchMode = true
 			m.inlineSearchQuery = m.tableContentFilter
+
+		case CommandOpenConnectionManager:
+			// Open connection manager popup
+			m.connManagerMode = true
+			m.connManagerFilter = ""
+			m.connManagerSelected = 0
+			m.connManagerScroll = 0
+			m.connManagerInsertMode = true // Start in insert mode
+			if m.connHistory != nil {
+				m.filteredConnections = m.connHistory.GetAll()
+			}
 
 		case CommandOpenSearch:
 			m.searchMode = true

@@ -1,6 +1,7 @@
 package tui
 
 import (
+	"github.com/someshkoli/dessertfrog/pkg/connhistory"
 	"github.com/someshkoli/dessertfrog/pkg/driver"
 	"github.com/someshkoli/dessertfrog/pkg/sqlhistory"
 )
@@ -173,6 +174,15 @@ type Model struct {
 	schemaPanelLineCount int                   // Total number of lines in schema panel
 	schemaInfo           *driver.TableSchema   // Cached detailed schema for selected table
 	schemaInfoLoading    bool                  // Whether schema info is loading
+
+	// Connection manager popup
+	connManagerMode        bool                         // Whether connection manager popup is active
+	connHistory            *connhistory.History         // Connection history
+	connManagerFilter      string                       // Filter query for connections
+	connManagerSelected    int                          // Selected connection index
+	connManagerScroll      int                          // Scroll offset in connection list
+	filteredConnections    []connhistory.ConnectionEntry // Filtered connections
+	connManagerInsertMode  bool                         // Whether in insert mode (true) or normal/navigate mode (false)
 }
 
 // NewModel creates a new TUI model with database configuration
@@ -214,6 +224,13 @@ func NewModel(config DBConfig, keyBindings KeyBindings, styles Styles) Model {
 		sqlHist = nil
 	}
 
+	// Initialize connection history
+	connHist, err := connhistory.NewHistory()
+	if err != nil {
+		// If connection history initialization fails, continue without it
+		connHist = nil
+	}
+
 	return Model{
 		dbConfig:             config,
 		driver:               drv,
@@ -245,5 +262,12 @@ func NewModel(config DBConfig, keyBindings KeyBindings, styles Styles) Model {
 		sqlHistorySelected:   -1,
 		sqlHistorySuggestionsVisible: false,
 		sqlHistorySuggestions: make([]sqlhistory.HistoryEntry, 0),
+		connHistory:           connHist,
+		connManagerMode:       false,
+		connManagerFilter:     "",
+		connManagerSelected:   0,
+		connManagerScroll:     0,
+		filteredConnections:   make([]connhistory.ConnectionEntry, 0),
+		connManagerInsertMode: true, // Start in insert mode by default
 	}
 }
