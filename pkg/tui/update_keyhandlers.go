@@ -41,7 +41,17 @@ func (m Model) handleKeyPress(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		return m.handleDebugPanelKeys(msg)
 	}
 
-	// Handle search mode first - highest priority to allow typing
+	// Handle passphrase prompt mode first - highest priority for encryption
+	if m.passphrasePromptMode {
+		return m.handlePassphrasePromptKeys(msg)
+	}
+
+	// Handle key selector mode second - for first-run setup
+	if m.keySelectorMode {
+		return m.handleKeySelectorKeys(msg)
+	}
+
+	// Handle search mode - high priority to allow typing
 	if m.searchMode {
 		return m.handleSearchModeKeys(msg)
 	}
@@ -49,6 +59,11 @@ func (m Model) handleKeyPress(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	// Handle connection manager mode
 	if m.connManagerMode {
 		return m.handleConnectionManagerKeys(msg)
+	}
+
+	// Handle connection input mode
+	if m.connInputMode {
+		return m.handleConnectionInputKeys(msg)
 	}
 
 	// Handle inline search mode
@@ -417,6 +432,26 @@ func (m Model) handleInlineSearchModeKeys(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 // handleNormalModeKeys handles keyboard input in normal mode
 func (m Model) handleNormalModeKeys(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	key := msg.String()
+
+	// If disconnected, treat this as connection manager in main view (not popup)
+	// Use the same insert/normal mode behavior as the connection manager popup
+	if m.connectionStatus == Disconnected {
+		// Temporarily set connManagerMode to true and delegate to connection manager handler
+		m.connManagerMode = true
+		m2, cmd := m.handleConnectionManagerKeys(msg)
+		// If connection manager was closed by the handler, keep it open since we're in main view
+		if !m2.connManagerMode {
+			// User pressed 'q' or 'esc' in normal mode - interpret as quit
+			if key == "q" || (key == "esc" && !m.connManagerInsertMode) {
+				return m2, tea.Quit
+			}
+			// Otherwise, keep the connection manager conceptually "open" (it's the main view)
+			m2.connManagerMode = false // Keep it as main view, not popup
+			return m2, cmd
+		}
+		m2.connManagerMode = false // Reset since we're not in popup mode
+		return m2, cmd
+	}
 
 	// Handle Tab to switch between panels
 	if key == "tab" {

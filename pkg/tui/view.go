@@ -1,6 +1,7 @@
 package tui
 
 import (
+	"fmt"
 	"strings"
 
 	"github.com/charmbracelet/lipgloss"
@@ -76,8 +77,81 @@ func (m Model) View() string {
 		title := m.styles.TitleStyle.Render("dessertfrog - Database Browser")
 		mainContent += title + "\n"
 
-		// If connection failed, show error prominently instead of tables
-		if m.connectionStatus == ConnectionFailed {
+		// If disconnected and not in any other mode, show connection manager as main view
+		if m.connectionStatus == Disconnected && !m.sqlQueryMode {
+			// Render connection manager inline with filter support
+			var filterLine string
+			if m.connManagerInsertMode {
+				filterPrompt := "Filter: "
+				ghostText := ""
+				if m.connManagerFilter == "" {
+					ghostText = m.styles.GhostTextStyle.Render("Type to filter connections...")
+				}
+				filterLine = m.styles.ConnManagerFilterStyle.Render(filterPrompt + m.connManagerFilter + ghostText)
+			}
+
+			connections := m.filteredConnections
+			if len(connections) == 0 && m.connHistory != nil {
+				if m.connManagerFilter == "" {
+					connections = m.connHistory.GetAll()
+				} else {
+					connections = m.connHistory.Filter(m.connManagerFilter)
+				}
+			}
+
+			if m.connManagerInsertMode && m.connManagerFilter != "" {
+				mainContent += filterLine + "\n\n"
+			}
+
+			if len(connections) == 0 {
+				if m.connManagerFilter != "" {
+					mainContent += m.styles.ErrorStyle.Render("No connections match filter") + "\n"
+				} else {
+					mainContent += m.styles.ErrorStyle.Render("No saved connections") + "\n"
+				}
+				mainContent += "\n"
+				if !m.connManagerInsertMode {
+					mainContent += "Press 'C' to create a new connection\n"
+				}
+			} else {
+				mainContent += "Saved Connections:\n\n"
+				for i, conn := range connections {
+					line := fmt.Sprintf("  %s", conn.Signature())
+					if i == m.connManagerSelected {
+						line = m.styles.SelectedRowStyle.Render(line)
+					} else {
+						line = m.styles.TableRowStyle.Render(line)
+					}
+					mainContent += line + "\n"
+				}
+			}
+
+			// Help text with mode indicator
+			var helpText string
+			var modeIndicator string
+			if m.connManagerInsertMode {
+				helpText = "type to filter  enter: connect  esc: normal mode"
+				modeIndicator = " INSERT "
+			} else {
+				helpText = "hjkl: navigate  g/G: top/bottom  C: new connection  i: insert mode  enter: connect  q: quit"
+				modeIndicator = " NORMAL "
+			}
+
+			var modeStyle lipgloss.Style
+			if m.connManagerInsertMode {
+				modeStyle = m.styles.ConnManagerInsertModeStyle
+			} else {
+				modeStyle = m.styles.ConnManagerNormalModeStyle
+			}
+
+			helpMessage = lipgloss.JoinHorizontal(
+				lipgloss.Left,
+				m.styles.HelpStyle.Render(helpText),
+				"  ",
+				modeStyle.Render(modeIndicator),
+			)
+		} else if m.connectionStatus == ConnectionFailed {
+			// If connection failed, show error prominently instead of tables
 			errorBox := m.renderConnectionError()
 			mainContent += errorBox
 		} else if !m.sqlQueryMode {
@@ -186,9 +260,24 @@ func (m Model) View() string {
 		return m.renderSearchPopup(mainView)
 	}
 
+	// Render passphrase prompt popup overlay if active (highest priority for encryption)
+	if m.passphrasePromptMode {
+		return m.renderPassphrasePromptPopup(mainView)
+	}
+
+	// Render key selector popup overlay if active (highest priority - must be set up first)
+	if m.keySelectorMode {
+		return m.renderKeySelectorPopup(mainView)
+	}
+
 	// Render connection manager popup overlay if active
 	if m.connManagerMode {
 		return m.renderConnectionManagerPopup(mainView)
+	}
+
+	// Render connection input popup overlay if active
+	if m.connInputMode {
+		return m.renderConnectionInputPopup(mainView)
 	}
 
 	// Render record view popup overlay if active

@@ -1,15 +1,18 @@
 package tui
 
 import (
+	"errors"
 	"fmt"
 
 	tea "github.com/charmbracelet/bubbletea"
+	"github.com/someshkoli/dessertfrog/pkg/connhistory"
+	"github.com/someshkoli/dessertfrog/pkg/encryption"
 )
 
 // Init initializes the bubbletea model
 func (m Model) Init() tea.Cmd {
-	// Start connection attempt
-	return connectToDatabase(m.driver)
+	// First check if encryption needs to be set up
+	return checkEncryptionSetup()
 }
 
 // Update handles messages and updates the model
@@ -21,7 +24,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.tablesLoading = true
 		// After successful connection, save to history and fetch tables
 		if m.connHistory != nil {
-			_ = m.connHistory.Add(
+			err := m.connHistory.Add(
 				m.dbConfig.Driver,
 				m.dbConfig.Host,
 				m.dbConfig.Port,
@@ -30,6 +33,14 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				m.dbConfig.Database,
 				m.dbConfig.Schema,
 			)
+			if err != nil {
+				// Log error but don't fail connection
+				m = m.debugLog(fmt.Sprintf("Failed to save connection to history: %v", err))
+			} else {
+				m = m.debugLog("Connection saved to history successfully")
+			}
+		} else {
+			m = m.debugLog("Connection history is nil, cannot save connection")
 		}
 		return m, fetchTables(m.driver)
 
@@ -63,7 +74,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 		// Save to connection history
 		if m.connHistory != nil {
-			_ = m.connHistory.Add(
+			err := m.connHistory.Add(
 				msg.dbConfig.Driver,
 				msg.dbConfig.Host,
 				msg.dbConfig.Port,
@@ -72,6 +83,9 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				msg.dbConfig.Database,
 				msg.dbConfig.Schema,
 			)
+			if err != nil {
+				m = m.debugLog(fmt.Sprintf("Failed to save switched connection to history: %v", err))
+			}
 		}
 
 		// Fetch tables for new connection
@@ -79,10 +93,213 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m, fetchTables(m.driver)
 
 	case connectionSwitchFailedMsg:
-		m.connectionError = fmt.Sprintf("Failed to switch connection: %v", msg.err)
-		// Reopen connection manager to show error and allow retry
+		m.connectionError = fmt.Sprintf("Connection failed: %v", msg.err)
+		m.connectionStatus = Disconnected
+		// If we have connection input values, reopen the form to show error and allow retry
+		if m.connInputDriver != "" || m.connInputHost != "" {
+			m.connInputMode = true
+			return m, nil
+		}
+		// Otherwise reopen connection manager to show error and allow retry
 		m.connManagerMode = true
+		if m.connHistory != nil {
+			m.filteredConnections = m.connHistory.GetAll()
+		}
 		return m, nil
+
+	// Encryption setup messages
+	case encryptionSetupRequiredMsg:
+		// Show key selector popup for first-time setup
+		m = m.debugLog("Encryption setup required - discovering keys")
+		keys, err := encryption.DiscoverKeys()
+		if err != nil {
+			// If key discovery fails, continue without encryption
+			m = m.debugLog(fmt.Sprintf("Key discovery failed: %v", err))
+			// If no database driver, show connection manager, otherwise connect
+			if m.driver != nil {
+				m.connectionStatus = Connecting
+				return m, connectToDatabase(m.driver)
+			} else {
+				// Open connection manager view
+				m.connManagerMode = true
+				if m.connHistory != nil {
+					m.filteredConnections = m.connHistory.GetAll()
+				}
+				return m, nil
+			}
+		}
+		m = m.debugLog(fmt.Sprintf("Found %d encryption keys", len(keys)))
+		m.availableKeys = keys
+		m.filteredKeys = keys
+		m.keySelectorMode = true
+		m.keySelectorInsertMode = true
+		m.keySelectorSelected = 0
+		m.keySelectorScroll = 0
+		return m, nil
+
+	case encryptionSetupCompleteMsg:
+		// Encryption is set up, save the key and continue with connection
+		m = m.debugLog(fmt.Sprintf("Encryption setup complete with key: %s", msg.key.Name))
+		m.encryptionKey = msg.key
+		m.encryptionConfig = &encryption.Config{
+			KeyPath: msg.key.Path,
+			KeyType: msg.key.Type,
+		}
+
+		// Reinitialize connection history with encryption
+		m = m.debugLog("Initializing connection history with encryption")
+		connHist, err := connhistory.NewHistoryWithEncryption(m.encryptionKey)
+		if err != nil {
+			// Check if passphrase is required
+			if errors.Is(err, encryption.ErrPassphraseRequired) {
+				// Show passphrase prompt
+				m.debugLog("Passphrase required - showing prompt")
+				m.passphrasePromptMode = true
+				m.passphraseInput = ""
+				m.passphraseCursor = 0
+				m.passphraseKeyName = msg.key.Name
+				m.passphraseKeyPath = msg.key.Path
+				return m, nil
+			}
+			// Other error - continue without encryption
+			m = m.debugLog(fmt.Sprintf("Failed to load connection history: %v", err))
+			m.connectionError = fmt.Sprintf("Failed to load connection history: %v", err)
+		} else {
+			m.connHistory = connHist
+			m.debugLog("Connection history initialized without passphrase")
+		}
+
+		// Continue with database connection or show connection manager
+		if m.driver != nil {
+			m.connectionStatus = Connecting
+			return m, connectToDatabase(m.driver)
+		} else {
+			// Open connection manager view
+			m.connManagerMode = true
+			if m.connHistory != nil {
+				m.filteredConnections = m.connHistory.GetAll()
+			}
+			return m, nil
+		}
+
+	case encryptionKeySelectedMsg:
+		// User selected an encryption key
+		m = m.debugLog(fmt.Sprintf("User selected encryption key: %s", msg.key.Name))
+		m.encryptionKey = msg.key
+		m.encryptionConfig = &encryption.Config{
+			KeyPath: msg.key.Path,
+			KeyType: msg.key.Type,
+		}
+
+		// Reinitialize connection history with encryption
+		m = m.debugLog("Initializing connection history with selected key")
+		connHist, err := connhistory.NewHistoryWithEncryption(m.encryptionKey)
+		if err != nil {
+			// Check if passphrase is required
+			if errors.Is(err, encryption.ErrPassphraseRequired) {
+				// Show passphrase prompt
+				m.debugLog("Passphrase required for selected key")
+				m.passphrasePromptMode = true
+				m.passphraseInput = ""
+				m.passphraseCursor = 0
+				m.passphraseKeyName = msg.key.Name
+				m.passphraseKeyPath = msg.key.Path
+				return m, nil
+			}
+			// Other error - continue without encryption
+			m.debugLog(fmt.Sprintf("Failed to initialize with selected key: %v", err))
+			m.connectionError = fmt.Sprintf("Failed to load connection history: %v", err)
+		} else {
+			m.connHistory = connHist
+			m.debugLog("Connection history initialized with selected key")
+		}
+
+		// Continue with database connection or show connection manager
+		if m.driver != nil {
+			m.connectionStatus = Connecting
+			return m, connectToDatabase(m.driver)
+		} else {
+			// Open connection manager view
+			m.connManagerMode = true
+			if m.connHistory != nil {
+				m.filteredConnections = m.connHistory.GetAll()
+			}
+			return m, nil
+		}
+
+	case sshKeyGenerationMsg:
+		if msg.success {
+			// SSH key generated successfully, use it
+			m.availableKeys = append(m.availableKeys, *msg.key)
+			m.filteredKeys = append(m.filteredKeys, *msg.key)
+			m.encryptionKey = msg.key
+			m.encryptionConfig = &encryption.Config{
+				KeyPath: msg.key.Path,
+				KeyType: msg.key.Type,
+			}
+
+			// Save config
+			if err := encryption.SaveConfig(m.encryptionConfig); err != nil {
+				m.connectionError = fmt.Sprintf("Failed to save encryption config: %v", err)
+			}
+
+			// Reinitialize connection history with encryption
+			connHist, err := connhistory.NewHistoryWithEncryption(m.encryptionKey)
+			if err == nil {
+				m.connHistory = connHist
+			}
+
+			// Close key selector and continue
+			m.keySelectorMode = false
+			m.connectionStatus = Connecting
+			return m, connectToDatabase(m.driver)
+		} else {
+			// SSH key generation failed
+			m.connectionError = fmt.Sprintf("Failed to generate SSH key: %v", msg.err)
+			return m, nil
+		}
+
+	case encryptionSetupErrorMsg:
+		// Encryption setup failed, continue without encryption
+		m.connectionError = fmt.Sprintf("Encryption setup failed: %v", msg.err)
+		m.connectionStatus = Connecting
+		return m, connectToDatabase(m.driver)
+
+	case passphraseSubmittedMsg:
+		// User submitted passphrase - reinitialize connection history with passphrase
+		if msg.keychainError != nil {
+			m = m.debugLog(fmt.Sprintf("Warning: Failed to save passphrase to keychain: %v", msg.keychainError))
+		} else {
+			m = m.debugLog("Passphrase saved to keychain successfully")
+		}
+
+		m = m.debugLog(fmt.Sprintf("Attempting to initialize connection history with passphrase (len=%d)", len(msg.passphrase)))
+		connHist, err := connhistory.NewHistoryWithEncryptionAndPassphrase(m.encryptionKey, msg.passphrase)
+		if err != nil {
+			m.connectionError = fmt.Sprintf("Invalid passphrase or failed to initialize: %v", err)
+			m = m.debugLog(fmt.Sprintf("Failed to load connection history with passphrase: %v", err))
+			// Show passphrase prompt again
+			m.passphrasePromptMode = true
+			m.passphraseInput = ""
+			m.passphraseCursor = 0
+			return m, nil
+		} else {
+			m.connHistory = connHist
+			m = m.debugLog("Connection history initialized successfully with passphrase")
+		}
+
+		// Continue with database connection or show connection manager
+		if m.driver != nil {
+			m.connectionStatus = Connecting
+			return m, connectToDatabase(m.driver)
+		} else {
+			// Open connection manager view
+			m.connManagerMode = true
+			if m.connHistory != nil {
+				m.filteredConnections = m.connHistory.GetAll()
+			}
+			return m, nil
+		}
 
 	case tablesLoadedMsg:
 		m.tablesLoading = false

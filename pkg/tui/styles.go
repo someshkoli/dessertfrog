@@ -106,6 +106,12 @@ type Styles struct {
 	ScrollIndicatorStyle        lipgloss.Style
 	ErrorStyle                  lipgloss.Style
 	TableRowStyle               lipgloss.Style
+
+	// Passphrase prompt styles
+	PassphrasePromptStyle       lipgloss.Style
+	PassphraseTitleStyle        lipgloss.Style
+	PassphraseInputStyle        lipgloss.Style
+	PassphraseKeyInfoStyle      lipgloss.Style
 }
 
 // NewStyles creates a new Styles instance from a color scheme
@@ -407,5 +413,25 @@ func NewStyles(scheme config.ColorSchemeConfig) Styles {
 
 		TableRowStyle: lipgloss.NewStyle().
 			Foreground(lipgloss.Color(scheme.Foreground)),
+
+		// Passphrase prompt styles
+		PassphrasePromptStyle: lipgloss.NewStyle().
+			Border(lipgloss.RoundedBorder()).
+			BorderForeground(lipgloss.Color(scheme.PopupBorder)).
+			Padding(1, 2).
+			Background(lipgloss.Color(scheme.PopupBg)),
+
+		PassphraseTitleStyle: lipgloss.NewStyle().
+			Bold(true).
+			Foreground(lipgloss.Color(scheme.Primary)),
+
+		PassphraseInputStyle: lipgloss.NewStyle().
+			Border(lipgloss.RoundedBorder()).
+			BorderForeground(lipgloss.Color(scheme.BorderActive)).
+			Padding(0, 1),
+
+		PassphraseKeyInfoStyle: lipgloss.NewStyle().
+			Foreground(lipgloss.Color("241")).
+			Italic(true),
 	}
 }

@@ -47,6 +47,23 @@ func (m Model) handleConnectionManagerKeys(msg tea.KeyMsg) (Model, tea.Cmd) {
 		return m, nil
 	}
 
+	// Handle 'C' key - create new connection in normal mode
+	if key == "C" && !m.connManagerInsertMode {
+		// Close connection manager and open new connection input form
+		m.connManagerMode = false
+		m.connInputMode = true
+		m.connInputField = 0 // Start at driver field
+		m.connInputDriver = ""
+		m.connInputHost = "localhost"
+		m.connInputPort = ""
+		m.connInputUsername = ""
+		m.connInputPassword = ""
+		m.connInputDatabase = ""
+		m.connInputSchema = ""
+		m.connInputCursor = 0
+		return m, nil
+	}
+
 	// Insert mode - all keys go to filter
 	if m.connManagerInsertMode {
 		switch key {

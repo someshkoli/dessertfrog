@@ -3,6 +3,7 @@ package tui
 import (
 	"github.com/someshkoli/dessertfrog/pkg/connhistory"
 	"github.com/someshkoli/dessertfrog/pkg/driver"
+	"github.com/someshkoli/dessertfrog/pkg/encryption"
 	"github.com/someshkoli/dessertfrog/pkg/sqlhistory"
 )
 
@@ -183,48 +184,85 @@ type Model struct {
 	connManagerScroll      int                          // Scroll offset in connection list
 	filteredConnections    []connhistory.ConnectionEntry // Filtered connections
 	connManagerInsertMode  bool                         // Whether in insert mode (true) or normal/navigate mode (false)
+
+	// New connection input form
+	connInputMode          bool                         // Whether new connection input form is active
+	connInputField         int                          // Currently focused input field (0=driver, 1=host, 2=port, etc.)
+	connInputDriver        string                       // Driver input
+	connInputHost          string                       // Host input
+	connInputPort          string                       // Port input
+	connInputUsername      string                       // Username input
+	connInputPassword      string                       // Password input
+	connInputDatabase      string                       // Database input
+	connInputSchema        string                       // Schema input
+	connInputCursor        int                          // Cursor position in current input field
+
+	// Encryption key selector popup
+	keySelectorMode        bool                  // Whether key selector popup is active
+	keySelectorFilter      string                // Filter query for keys
+	keySelectorSelected    int                   // Selected key index
+	keySelectorScroll      int                   // Scroll offset in key list
+	keySelectorInsertMode  bool                  // Whether in insert mode
+	availableKeys          []encryption.Key      // Discovered encryption keys
+	filteredKeys           []encryption.Key      // Filtered keys
+	encryptionConfig       *encryption.Config    // Current encryption configuration
+	encryptionKey          *encryption.Key       // Current encryption key
+
+	// Passphrase prompt popup
+	passphrasePromptMode   bool   // Whether passphrase prompt is active
+	passphraseInput        string // Passphrase input
+	passphraseCursor       int    // Cursor position in passphrase input
+	passphraseKeyName      string // Name of key requiring passphrase
+	passphraseKeyPath      string // Path of key requiring passphrase
 }
 
 // NewModel creates a new TUI model with database configuration
 func NewModel(config DBConfig, keyBindings KeyBindings, styles Styles) Model {
-	// Create driver based on config
 	var drv driver.Driver
-	driverConfig := &driver.Config{
-		Host:     config.Host,
-		Port:     config.Port,
-		Database: config.Database,
-		Schema:   config.Schema,
-		User:     config.Username,
-		Password: config.Password,
-		SSLMode:  "disable", // Default to disable for now
+	var sqlHist *sqlhistory.History
+	var connectionStatus ConnectionStatus
+
+	// Only create driver and SQL history if we have a database configuration
+	if config.Driver != "" {
+		// Create driver based on config
+		driverConfig := &driver.Config{
+			Host:     config.Host,
+			Port:     config.Port,
+			Database: config.Database,
+			Schema:   config.Schema,
+			User:     config.Username,
+			Password: config.Password,
+			SSLMode:  "disable", // Default to disable for now
+		}
+
+		switch config.Driver {
+		case "postgres", "postgresql":
+			drv = driver.NewPostgresDriver(driverConfig)
+		case "clickhouse", "ch":
+			drv = driver.NewClickHouseDriver(driverConfig)
+		default:
+			// For now, default to postgres
+			drv = driver.NewPostgresDriver(driverConfig)
+		}
+
+		// Initialize SQL history for this connection
+		sqlHist, _ = sqlhistory.NewHistory(
+			config.Driver,
+			config.Host,
+			config.Port,
+			config.Database,
+			config.Schema,
+			config.Username,
+			1000, // Max 1000 queries
+		)
+
+		connectionStatus = Connecting
+	} else {
+		// No database configured - will start with connection manager
+		connectionStatus = Disconnected
 	}
 
-	switch config.Driver {
-	case "postgres", "postgresql":
-		drv = driver.NewPostgresDriver(driverConfig)
-	case "clickhouse", "ch":
-		drv = driver.NewClickHouseDriver(driverConfig)
-	default:
-		// For now, default to postgres
-		drv = driver.NewPostgresDriver(driverConfig)
-	}
-
-	// Initialize SQL history for this connection
-	sqlHist, err := sqlhistory.NewHistory(
-		config.Driver,
-		config.Host,
-		config.Port,
-		config.Database,
-		config.Schema,
-		config.Username,
-		1000, // Max 1000 queries
-	)
-	if err != nil {
-		// If history initialization fails, continue without it
-		sqlHist = nil
-	}
-
-	// Initialize connection history
+	// Initialize connection history (always needed)
 	connHist, err := connhistory.NewHistory()
 	if err != nil {
 		// If connection history initialization fails, continue without it
@@ -234,7 +272,7 @@ func NewModel(config DBConfig, keyBindings KeyBindings, styles Styles) Model {
 	return Model{
 		dbConfig:             config,
 		driver:               drv,
-		connectionStatus:     Connecting,
+		connectionStatus:     connectionStatus,
 		scrollOffset:         0,
 		selectedRow:          0,
 		searchMode:           false,
@@ -262,12 +300,31 @@ func NewModel(config DBConfig, keyBindings KeyBindings, styles Styles) Model {
 		sqlHistorySelected:   -1,
 		sqlHistorySuggestionsVisible: false,
 		sqlHistorySuggestions: make([]sqlhistory.HistoryEntry, 0),
-		connHistory:           connHist,
-		connManagerMode:       false,
-		connManagerFilter:     "",
-		connManagerSelected:   0,
-		connManagerScroll:     0,
-		filteredConnections:   make([]connhistory.ConnectionEntry, 0),
-		connManagerInsertMode: true, // Start in insert mode by default
+		connHistory:            connHist,
+		connManagerMode:        false,
+		connManagerFilter:      "",
+		connManagerSelected:    0,
+		connManagerScroll:      0,
+		filteredConnections:    make([]connhistory.ConnectionEntry, 0),
+		connManagerInsertMode:  true, // Start in insert mode by default
+		connInputMode:          false,
+		connInputField:         0,
+		connInputDriver:        "",
+		connInputHost:          "",
+		connInputPort:          "",
+		connInputUsername:      "",
+		connInputPassword:      "",
+		connInputDatabase:      "",
+		connInputSchema:        "",
+		connInputCursor:        0,
+		keySelectorMode:        false,
+		keySelectorFilter:      "",
+		keySelectorSelected:    0,
+		keySelectorScroll:      0,
+		keySelectorInsertMode:  true, // Start in insert mode by default
+		availableKeys:          make([]encryption.Key, 0),
+		filteredKeys:           make([]encryption.Key, 0),
+		encryptionConfig:       nil,
+		encryptionKey:          nil,
 	}
 }

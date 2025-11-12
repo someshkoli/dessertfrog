@@ -8,8 +8,8 @@ import (
 	"github.com/someshkoli/dessertfrog/pkg/helpers"
 )
 
-// renderConnectionManagerPopup renders the connection manager popup overlay
-func (m Model) renderConnectionManagerPopup(baseView string) string {
+// renderKeySelectorPopup renders the encryption key selector popup
+func (m Model) renderKeySelectorPopup(baseView string) string {
 	popupWidth := helpers.Min(100, m.width-4)
 	popupHeight := helpers.Min(30, m.height-4)
 
@@ -17,35 +17,35 @@ func (m Model) renderConnectionManagerPopup(baseView string) string {
 	var content strings.Builder
 
 	// Title
-	title := m.styles.ConnManagerTitleStyle.Render("Connection Manager")
+	title := m.styles.ConnManagerTitleStyle.Render("Select Encryption Key")
 	content.WriteString(title)
 	content.WriteString("\n\n")
 
 	// Filter input
 	filterPrompt := "Filter: "
 	ghostText := ""
-	if m.connManagerFilter == "" {
-		ghostText = m.styles.GhostTextStyle.Render("Type to filter connections...")
+	if m.keySelectorFilter == "" {
+		ghostText = m.styles.GhostTextStyle.Render("Type to filter keys...")
 	}
-	filterInput := m.styles.ConnManagerFilterStyle.Render(filterPrompt + m.connManagerFilter + ghostText)
+	filterInput := m.styles.ConnManagerFilterStyle.Render(filterPrompt + m.keySelectorFilter + ghostText)
 	content.WriteString(filterInput)
 	content.WriteString("\n\n")
 
-	// Connection list
-	connections := m.filteredConnections
-	if len(connections) == 0 {
-		if m.connManagerFilter != "" {
-			content.WriteString(m.styles.ErrorStyle.Render("No connections match filter"))
+	// Key list
+	keys := m.filteredKeys
+	if len(keys) == 0 {
+		if m.keySelectorFilter != "" {
+			content.WriteString(m.styles.ErrorStyle.Render("No keys match filter"))
 		} else {
-			content.WriteString(m.styles.ErrorStyle.Render("No saved connections"))
+			content.WriteString(m.styles.ErrorStyle.Render("No SSH/GPG keys found"))
+			content.WriteString("\n\n")
+			content.WriteString("Press 'g' to generate a new SSH key")
 		}
-		content.WriteString("\n\n")
-		content.WriteString("Connect to a database to save it to history")
 	} else {
 		// Calculate visible range for scrolling
-		maxVisible := popupHeight - 10 // Account for title, filter, help
-		startIdx := m.connManagerScroll
-		endIdx := helpers.Min(startIdx+maxVisible, len(connections))
+		maxVisible := popupHeight - 12 // Account for title, filter, help
+		startIdx := m.keySelectorScroll
+		endIdx := helpers.Min(startIdx+maxVisible, len(keys))
 
 		// Show scroll indicators
 		if startIdx > 0 {
@@ -53,13 +53,13 @@ func (m Model) renderConnectionManagerPopup(baseView string) string {
 			content.WriteString("\n")
 		}
 
-		// Render visible connections
+		// Render visible keys
 		for i := startIdx; i < endIdx; i++ {
-			conn := connections[i]
-			line := fmt.Sprintf("  %s", conn.Signature())
+			key := keys[i]
+			line := fmt.Sprintf("  [%s] %s", key.Type, key.Name)
 
 			// Highlight selected
-			if i == m.connManagerSelected {
+			if i == m.keySelectorSelected {
 				line = m.styles.SelectedRowStyle.Render(line)
 			} else {
 				line = m.styles.TableRowStyle.Render(line)
@@ -70,8 +70,8 @@ func (m Model) renderConnectionManagerPopup(baseView string) string {
 		}
 
 		// Show scroll indicator for below
-		if endIdx < len(connections) {
-			remaining := len(connections) - endIdx
+		if endIdx < len(keys) {
+			remaining := len(keys) - endIdx
 			content.WriteString(m.styles.ScrollIndicatorStyle.Render(fmt.Sprintf("↓ %d more below", remaining)))
 			content.WriteString("\n")
 		}
@@ -82,11 +82,19 @@ func (m Model) renderConnectionManagerPopup(baseView string) string {
 	// Help text with mode indicator on the right
 	var helpText string
 	var modeIndicator string
-	if m.connManagerInsertMode {
-		helpText = "type to filter  enter: connect  esc: normal mode"
+	if m.keySelectorInsertMode {
+		if len(keys) == 0 {
+			helpText = "g: generate SSH key  esc: cancel"
+		} else {
+			helpText = "type to filter  enter: select  esc: normal mode"
+		}
 		modeIndicator = " INSERT "
 	} else {
-		helpText = "hjkl: navigate  C: new connection  enter: connect  esc: close  q: quit"
+		if len(keys) == 0 {
+			helpText = "g: generate SSH key  i: insert mode  esc: cancel"
+		} else {
+			helpText = "hjkl: navigate  g/G: top/bottom  i: insert  enter: select  esc: cancel"
+		}
 		modeIndicator = " NORMAL "
 	}
 
@@ -96,7 +104,7 @@ func (m Model) renderConnectionManagerPopup(baseView string) string {
 
 	// Render help text and mode indicator side by side
 	var modeStyle lipgloss.Style
-	if m.connManagerInsertMode {
+	if m.keySelectorInsertMode {
 		modeStyle = m.styles.ConnManagerInsertModeStyle
 	} else {
 		modeStyle = m.styles.ConnManagerNormalModeStyle
