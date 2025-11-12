@@ -163,6 +163,9 @@ type Model struct {
 	// Key bindings
 	keyBindings KeyBindings // Configurable key bindings
 
+	// Styles
+	styles Styles // Color scheme and styling
+
 	// Schema panel (right side of home screen)
 	schemaPanelFocused   bool                  // Whether schema panel has focus (vs tables list)
 	schemaPanelSelected  int                   // Selected index in schema panel
@@ -173,7 +176,7 @@ type Model struct {
 }
 
 // NewModel creates a new TUI model with database configuration
-func NewModel(config DBConfig, keyBindings KeyBindings) Model {
+func NewModel(config DBConfig, keyBindings KeyBindings, styles Styles) Model {
 	// Create driver based on config
 	var drv driver.Driver
 	driverConfig := &driver.Config{
@@ -237,6 +240,7 @@ func NewModel(config DBConfig, keyBindings KeyBindings) Model {
 		cellEditBuffer:       make(map[string]string),
 		cellEditBufferCount:  0,
 		keyBindings:          keyBindings,
+		styles:               styles,
 		sqlHistory:           sqlHist,
 		sqlHistorySelected:   -1,
 		sqlHistorySuggestionsVisible: false,

@@ -3,8 +3,6 @@ package tui
 import (
 	"fmt"
 	"strings"
-
-	"github.com/charmbracelet/lipgloss"
 )
 
 // renderSQLHistorySuggestionsWindow renders the SQL history suggestions as an inline window above the input bar
@@ -22,34 +20,17 @@ func (m Model) renderSQLHistorySuggestionsWindow() string {
 	var lines []string
 
 	// Title line
-	titleStyle := lipgloss.NewStyle().
-		Bold(true).
-		Foreground(lipgloss.Color("205"))
-
-	countStyle := lipgloss.NewStyle().
-		Foreground(lipgloss.Color("240"))
-
-	title := titleStyle.Render("SQL History")
+	title := m.styles.SQLHistoryTitleStyle.Render("SQL History")
 	if len(m.sqlHistorySuggestions) > maxVisible {
-		title += " " + countStyle.Render(fmt.Sprintf("(%d/%d)", maxVisible, len(m.sqlHistorySuggestions)))
+		title += " " + m.styles.SQLHistoryCountStyle.Render(fmt.Sprintf("(%d/%d)", maxVisible, len(m.sqlHistorySuggestions)))
 	} else {
-		title += " " + countStyle.Render(fmt.Sprintf("(%d)", len(m.sqlHistorySuggestions)))
+		title += " " + m.styles.SQLHistoryCountStyle.Render(fmt.Sprintf("(%d)", len(m.sqlHistorySuggestions)))
 	}
 
 	lines = append(lines, title)
 	lines = append(lines, "") // Empty line for spacing
 
 	// Suggestion lines
-	selectedStyle := lipgloss.NewStyle().
-		Foreground(lipgloss.Color("255")).
-		Background(lipgloss.Color("63")).
-		Bold(true)
-
-	normalStyle := lipgloss.NewStyle().
-		Foreground(lipgloss.Color("252"))
-
-	ghostTextStyle := lipgloss.NewStyle().
-		Foreground(lipgloss.Color("240"))
 
 	for i := 0; i < maxVisible; i++ {
 		entry := m.sqlHistorySuggestions[i]
@@ -86,25 +67,19 @@ func (m Model) renderSQLHistorySuggestionsWindow() string {
 		}
 
 		// Build line with timestamp on the left in ghost text
-		ghostTimestamp := ghostTextStyle.Render(timestamp)
+		ghostTimestamp := m.styles.GhostTextStyle.Render(timestamp)
 
 		// Highlight selected item
 		var line string
 		if i == m.sqlHistorySelected {
-			line = ghostTimestamp + " " + selectedStyle.Render(fmt.Sprintf(" > %s ", displayQuery))
+			line = ghostTimestamp + " " + m.styles.SQLHistorySelectedStyle.Render(fmt.Sprintf(" > %s ", displayQuery))
 		} else {
-			line = ghostTimestamp + " " + normalStyle.Render(fmt.Sprintf("   %s", displayQuery))
+			line = ghostTimestamp + " " + m.styles.SQLHistoryNormalStyle.Render(fmt.Sprintf("   %s", displayQuery))
 		}
 
 		lines = append(lines, line)
 	}
 
-	// Border style
-	borderStyle := lipgloss.NewStyle().
-		Border(lipgloss.RoundedBorder()).
-		BorderForeground(lipgloss.Color("63")).
-		Padding(0, 1)
-
 	content := strings.Join(lines, "\n")
-	return borderStyle.Render(content)
+	return m.styles.SQLHistoryBorderStyle.Render(content)
 }

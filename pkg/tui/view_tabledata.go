@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/charmbracelet/lipgloss"
 	"github.com/someshkoli/dessertfrog/pkg/helpers"
 )
 
@@ -169,12 +168,10 @@ func (m Model) renderTableDataView() string {
 
 			// Highlight selected cell
 			if rowIdx == m.selectedDataRow && colIdx == m.selectedDataCol {
-				cellText = selectedRowStyle.Render(cellText)
+				cellText = m.styles.SelectedRowStyle.Render(cellText)
 			} else if hasPendingEdit {
 				// Show pending edit indicator (yellow/warning color)
-				cellText = lipgloss.NewStyle().
-					Foreground(lipgloss.Color("220")).
-					Render(cellText)
+				cellText = m.styles.CellPendingEditStyle.Render(cellText)
 			}
 
 			content.WriteString(cellText)
@@ -206,7 +203,7 @@ func (m Model) renderTableDataView() string {
 	}
 	content.WriteString(scrollInfo)
 
-	return borderStyle.
+	return m.styles.BorderStyle.
 		Width(contentWidth).
 		Height(availableHeight).
 		Render(content.String())
@@ -232,21 +229,15 @@ func (m Model) renderTableDataTitle() string {
 
 	// Add clipboard notification if present
 	if m.clipboardMessage != "" {
-		clipboardStyle := lipgloss.NewStyle().
-			Foreground(lipgloss.Color("120")).
-			Bold(true)
-		title += "  " + clipboardStyle.Render(m.clipboardMessage)
+		title += "  " + m.styles.TableClipboardStyle.Render(m.clipboardMessage)
 	}
 
 	// Add filter indicator if active
 	if m.tableContentFilter != "" {
-		filterStyle := lipgloss.NewStyle().
-			Foreground(lipgloss.Color("226")).
-			Bold(true)
-		title += "  " + filterStyle.Render(fmt.Sprintf("[Filter: %s]", m.tableContentFilter))
+		title += "  " + m.styles.TableFilterStyle.Render(fmt.Sprintf("[Filter: %s]", m.tableContentFilter))
 	}
 
-	return titleStyle.Render(title)
+	return m.styles.TitleStyle.Render(title)
 }
 
 // wrapText wraps text to fit within a given width

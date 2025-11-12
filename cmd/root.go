@@ -103,6 +103,10 @@ Connect to your database and browse tables, schemas, and data with an intuitive 
 		configKeyBindings := tui.ConvertConfigKeyBindings(cfg)
 		keyBindings := tui.MergeKeyBindings(defaultKeyBindings, configKeyBindings)
 
+		// Create styles from color scheme
+		mergedColorScheme := cfg.ColorScheme.MergeWithDefaults()
+		styles := tui.NewStyles(mergedColorScheme)
+
 		// Create database configuration
 		dbConfig := tui.DBConfig{
 			Driver:   dbDriver,
@@ -115,7 +119,7 @@ Connect to your database and browse tables, schemas, and data with an intuitive 
 		}
 
 		// Create and start the bubbletea program
-		p := tea.NewProgram(tui.NewModel(dbConfig, keyBindings), tea.WithAltScreen())
+		p := tea.NewProgram(tui.NewModel(dbConfig, keyBindings, styles), tea.WithAltScreen())
 		if _, err := p.Run(); err != nil {
 			fmt.Printf("Error running TUI: %v\n", err)
 			os.Exit(1)

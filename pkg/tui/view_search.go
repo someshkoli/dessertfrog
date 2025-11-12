@@ -17,13 +17,13 @@ func (m Model) renderSearchPopup(baseView string) string {
 	var inputText string
 	if m.searchSuggestion != "" {
 		// Show query + ghost text + cursor
-		inputText = searchPrompt + m.searchQuery + ghostTextStyle.Render(m.searchSuggestion) + cursorChar
+		inputText = searchPrompt + m.searchQuery + m.styles.GhostTextStyle.Render(m.searchSuggestion) + cursorChar
 	} else {
 		// Just show query + cursor
 		inputText = searchPrompt + m.searchQuery + cursorChar
 	}
 
-	searchInput := searchInputStyle.Render(inputText)
+	searchInput := m.styles.SearchInputStyle.Render(inputText)
 
 	// Build filtered results
 	var resultsContent string
@@ -55,7 +55,7 @@ func (m Model) renderSearchPopup(baseView string) string {
 				info,
 			)
 			if i == m.searchSelected {
-				resultLine = selectedRowStyle.Render(resultLine)
+				resultLine = m.styles.SelectedRowStyle.Render(resultLine)
 			}
 			resultsContent += resultLine + "\n"
 		}
@@ -67,7 +67,7 @@ func (m Model) renderSearchPopup(baseView string) string {
 	helpText := "\n↑/↓: navigate | Tab: autocomplete | Prefix: table/, view/, function/, trigger/ | Enter: select | Esc: close"
 	popupContent := searchInput + resultsContent + helpText
 
-	popup := popupStyle.Render(popupContent)
+	popup := m.styles.PopupStyle.Render(popupContent)
 
 	// Center the popup on screen
 	return lipgloss.Place(

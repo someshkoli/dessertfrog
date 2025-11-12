@@ -14,16 +14,16 @@ func (m Model) renderStatusLine() string {
 	switch m.connectionStatus {
 	case Connected:
 		statusText = "● Connected"
-		statusStyle = connectedStyle
+		statusStyle = m.styles.ConnectedStyle
 	case Connecting:
 		statusText = "● Connecting..."
-		statusStyle = connectingStyle
+		statusStyle = m.styles.ConnectingStyle
 	case ConnectionFailed:
 		statusText = "● Disconnected"
-		statusStyle = disconnectedStyle
+		statusStyle = m.styles.DisconnectedStyle
 	case Disconnected:
 		statusText = "● Disconnected"
-		statusStyle = disconnectedStyle
+		statusStyle = m.styles.DisconnectedStyle
 	}
 
 	// Build status line: DB info on left, timing in middle (if available), status on right
@@ -51,8 +51,8 @@ func (m Model) renderStatusLine() string {
 	}
 
 	// Style the left, middle, and right parts
-	leftPart := statusLineLeftStyle.Inline(true).Render(dbInfo)
-	middlePart := statusLineLeftStyle.Inline(true).Render(timingInfo)
+	leftPart := m.styles.StatusLineLeftStyle.Inline(true).Render(dbInfo)
+	middlePart := m.styles.StatusLineLeftStyle.Inline(true).Render(timingInfo)
 	rightPart := statusStyle.Inline(true).Render(statusText)
 
 	// Calculate actual widths after styling
@@ -70,7 +70,7 @@ func (m Model) renderStatusLine() string {
 	// Combine everything
 	content := leftPart + middlePart + spacing + rightPart
 
-	return statusLineStyle.Width(contentWidth).Render(content)
+	return m.styles.StatusLineStyle.Width(contentWidth).Render(content)
 }
 
 // renderConnectionError renders the connection error prominently on main screen
@@ -83,5 +83,5 @@ func (m Model) renderConnectionError() string {
 		m.dbConfig.Database,
 		m.dbConfig.Username,
 	)
-	return errorBoxStyle.Render(errorContent)
+	return m.styles.ErrorBoxStyle.Render(errorContent)
 }

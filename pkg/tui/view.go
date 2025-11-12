@@ -28,10 +28,10 @@ func (m Model) View() string {
 		// Inline search bar for content filtering
 		if m.inlineSearchMode {
 			searchBar := m.renderInlineSearchBar()
-			helpMessage = searchBar + "\n" + helpStyle.Render("Enter: apply filter | Esc: cancel")
+			helpMessage = searchBar + "\n" + m.styles.HelpStyle.Render("Enter: apply filter | Esc: cancel")
 		} else if m.commandMode {
-			cmdLine := commandLineStyle.Render(m.commandBuffer + "█")
-			helpMessage = cmdLine + "\n" + helpStyle.Render("Enter: execute | Esc: cancel")
+			cmdLine := m.styles.CommandLineStyle.Render(m.commandBuffer + "█")
+			helpMessage = cmdLine + "\n" + m.styles.HelpStyle.Render("Enter: execute | Esc: cancel")
 		} else if m.sqlQueryMode {
 			sqlPrompt := "SQL Query: "
 			// Insert cursor at the correct position (using runes for UTF-8)
@@ -45,11 +45,11 @@ func (m Model) View() string {
 			}
 			beforeCursor := string(runes[:cursorPos])
 			afterCursor := string(runes[cursorPos:])
-			sqlInput := commandLineStyle.Render(sqlPrompt + beforeCursor + "█" + afterCursor)
+			sqlInput := m.styles.CommandLineStyle.Render(sqlPrompt + beforeCursor + "█" + afterCursor)
 			if m.sqlHistorySuggestionsVisible {
-				helpMessage = sqlInput + "\n" + helpStyle.Render("Enter: select | ↑/↓: navigate | Esc: close suggestions | Ctrl+N: toggle")
+				helpMessage = sqlInput + "\n" + m.styles.HelpStyle.Render("Enter: select | ↑/↓: navigate | Esc: close suggestions | Ctrl+N: toggle")
 			} else {
-				helpMessage = sqlInput + "\n" + helpStyle.Render("Enter: execute | Esc: cancel | Ctrl+N: show history")
+				helpMessage = sqlInput + "\n" + m.styles.HelpStyle.Render("Enter: execute | Esc: cancel | Ctrl+N: show history")
 			}
 		} else {
 			// Show help text with 's' to view/edit query
@@ -68,12 +68,12 @@ func (m Model) View() string {
 					helpText = "i: edit | v: view | V: record | y: copy | Y: row | /: filter | hjkl: move | n/p: page | s: query | q: quit"
 				}
 			}
-			helpMessage = helpStyle.Render(helpText)
+			helpMessage = m.styles.HelpStyle.Render(helpText)
 		}
 	} else {
 		// Normal table list view with split view (tables on left, schema on right)
 		// Row 1: Title
-		title := titleStyle.Render("dessertfrog - Database Browser")
+		title := m.styles.TitleStyle.Render("dessertfrog - Database Browser")
 		mainContent += title + "\n"
 
 		// If connection failed, show error prominently instead of tables
@@ -116,7 +116,7 @@ func (m Model) View() string {
 
 		// Command line, SQL query, or help text
 		if m.commandMode {
-			cmdLine := commandLineStyle.Render(m.commandBuffer)
+			cmdLine := m.styles.CommandLineStyle.Render(m.commandBuffer)
 			helpMessage = cmdLine
 		} else if m.sqlQueryMode {
 			sqlPrompt := "SQL Query: "
@@ -131,16 +131,16 @@ func (m Model) View() string {
 			}
 			beforeCursor := string(runes[:cursorPos])
 			afterCursor := string(runes[cursorPos:])
-			sqlInput := commandLineStyle.Render(sqlPrompt + beforeCursor + "█" + afterCursor)
+			sqlInput := m.styles.CommandLineStyle.Render(sqlPrompt + beforeCursor + "█" + afterCursor)
 			if m.sqlHistorySuggestionsVisible {
-				helpMessage = sqlInput + "\n" + helpStyle.Render("Enter: select | ↑/↓: navigate | Esc: cancel | Ctrl+N: toggle")
+				helpMessage = sqlInput + "\n" + m.styles.HelpStyle.Render("Enter: select | ↑/↓: navigate | Esc: cancel | Ctrl+N: toggle")
 			} else {
-				helpMessage = sqlInput + "\n" + helpStyle.Render("Enter: execute | Esc: cancel | Ctrl+N: show history")
+				helpMessage = sqlInput + "\n" + m.styles.HelpStyle.Render("Enter: execute | Esc: cancel | Ctrl+N: show history")
 			}
 		} else if m.inlineSearchMode {
-			helpMessage = helpStyle.Render("↑/↓: navigate | Tab: autocomplete | Esc: clear filter | Enter: open table")
+			helpMessage = m.styles.HelpStyle.Render("↑/↓: navigate | Tab: autocomplete | Esc: clear filter | Enter: open table")
 		} else {
-			helpMessage = helpStyle.Render("/: filter | Ctrl+P: search | s: SQL query | Tab: switch panel | j/k: scroll | Enter: view | g/G: top/bot | q: quit")
+			helpMessage = m.styles.HelpStyle.Render("/: filter | Ctrl+P: search | s: SQL query | Tab: switch panel | j/k: scroll | Enter: view | g/G: top/bot | q: quit")
 		}
 	}
 
@@ -173,7 +173,7 @@ func (m Model) View() string {
 	)
 
 	// Wrap everything in the screen border
-	screenBorder := screenBorderStyle
+	screenBorder := m.styles.ScreenBorderStyle
 	if m.height > 0 {
 		// Set border height to fill terminal (account for border lines)
 		screenBorder = screenBorder.Height(m.height - 2)
@@ -224,15 +224,15 @@ func (m Model) renderInlineSearchBar() string {
 	// Build input with ghost text suggestion
 	var inputText string
 	if m.inlineSearchSuggestion != "" {
-		inputText = searchPrompt + m.inlineSearchQuery + ghostTextStyle.Render(m.inlineSearchSuggestion) + cursorChar
+		inputText = searchPrompt + m.inlineSearchQuery + m.styles.GhostTextStyle.Render(m.inlineSearchSuggestion) + cursorChar
 	} else {
 		inputText = searchPrompt + m.inlineSearchQuery + cursorChar
 	}
 
 	// Choose style based on focus - active when not in schema panel
-	inputStyle := activeSearchInputStyle
+	inputStyle := m.styles.ActiveSearchInputStyle
 	if m.schemaPanelFocused {
-		inputStyle = inactiveSearchInputStyle
+		inputStyle = m.styles.InactiveSearchInputStyle
 	}
 
 	return inputStyle.Render(inputText)

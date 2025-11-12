@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/charmbracelet/lipgloss"
 	"github.com/someshkoli/dessertfrog/pkg/driver"
 )
 
@@ -28,12 +27,9 @@ func (m Model) renderSchemaPanel(width, availableHeight int) string {
 	}
 
 	if len(displayTables) == 0 || m.selectedRow >= len(displayTables) {
-		emptyMsg := lipgloss.NewStyle().
-			Foreground(lipgloss.Color("241")).
-			Italic(true).
-			Render("No table selected")
+		emptyMsg := m.styles.SchemaEmptyStyle.Render("No table selected")
 
-		return borderStyle.
+		return m.styles.BorderStyle.
 			Width(panelWidth).
 			Height(panelHeight).
 			Render(emptyMsg)
@@ -50,20 +46,12 @@ func (m Model) renderSchemaPanel(width, availableHeight int) string {
 		titleText = fmt.Sprintf("Table: %s.%s", selectedTable.SchemaName, selectedTable.TableName)
 	}
 
-	titleStyle := lipgloss.NewStyle().
-		Bold(true).
-		Foreground(lipgloss.Color("205")).
-		Underline(true)
-
-	allLines = append(allLines, titleStyle.Render(titleText))
+	allLines = append(allLines, m.styles.SchemaTitleStyle.Render(titleText))
 	allLines = append(allLines, "")
 
 	// Schema info sections
 	if m.schemaInfoLoading {
-		loadingStyle := lipgloss.NewStyle().
-			Foreground(lipgloss.Color("241")).
-			Italic(true)
-		allLines = append(allLines, loadingStyle.Render("Loading detailed schema..."))
+		allLines = append(allLines, m.styles.SchemaLoadingStyle.Render("Loading detailed schema..."))
 	} else if m.schemaInfo != nil {
 		// Show detailed schema info fetched asynchronously
 		infoLines := m.renderBasicSchemaInfoLines(*m.schemaInfo)
@@ -134,7 +122,7 @@ func (m Model) renderSchemaPanel(width, availableHeight int) string {
 
 		// Highlight selected line when schema panel is focused
 		if m.schemaPanelFocused && i == m.schemaPanelSelected {
-			line = selectedRowStyle.Render(line)
+			line = m.styles.SelectedRowStyle.Render(line)
 		}
 
 		content.WriteString(line)
@@ -152,9 +140,9 @@ func (m Model) renderSchemaPanel(width, availableHeight int) string {
 	}
 
 	// Choose border style based on focus
-	panelBorderStyle := inactiveBorderStyle
+	panelBorderStyle := m.styles.InactiveBorderStyle
 	if m.schemaPanelFocused {
-		panelBorderStyle = activeBorderStyle
+		panelBorderStyle = m.styles.ActiveBorderStyle
 	}
 
 	// The borderStyle with Height will ensure fixed height
@@ -169,68 +157,50 @@ func (m Model) renderSchemaPanel(width, availableHeight int) string {
 func (m Model) renderBasicSchemaInfoLines(table driver.TableSchema) []string {
 	var lines []string
 
-	sectionStyle := lipgloss.NewStyle().
-		Bold(true).
-		Foreground(lipgloss.Color("39"))
-
-	fieldStyle := lipgloss.NewStyle().
-		Foreground(lipgloss.Color("252"))
-
-	columnNameStyle := lipgloss.NewStyle().
-		Foreground(lipgloss.Color("228"))
-
-	typeStyle := lipgloss.NewStyle().
-		Foreground(lipgloss.Color("141"))
-
 	// Type and Row count on same line
 	infoLine := fmt.Sprintf("%s %s",
-		sectionStyle.Render("Type:"),
-		fieldStyle.Render(table.TableType))
+		m.styles.SchemaSectionStyle.Render("Type:"),
+		m.styles.SchemaFieldStyle.Render(table.TableType))
 
 	if table.RowCount > 0 {
 		infoLine += fmt.Sprintf("  %s %s",
-			sectionStyle.Render("Rows:"),
-			fieldStyle.Render(fmt.Sprintf("%d", table.RowCount)))
+			m.styles.SchemaSectionStyle.Render("Rows:"),
+			m.styles.SchemaFieldStyle.Render(fmt.Sprintf("%d", table.RowCount)))
 	}
 	lines = append(lines, infoLine)
 	lines = append(lines, "")
 
 	// Columns section
 	if len(table.Columns) > 0 {
-		lines = append(lines, sectionStyle.Render("Columns:"))
+		lines = append(lines, m.styles.SchemaSectionStyle.Render("Columns:"))
 
 		for i, col := range table.Columns {
 			if i >= 50 {
 				// Limit to avoid too many lines
 				remaining := len(table.Columns) - 50
-				lines = append(lines, fieldStyle.Render(fmt.Sprintf("  ... and %d more", remaining)))
+				lines = append(lines, m.styles.SchemaFieldStyle.Render(fmt.Sprintf("  ... and %d more", remaining)))
 				break
 			}
 
 			// Column name and type
 			columnLine := fmt.Sprintf("  %s %s",
-				columnNameStyle.Render(col.Name),
-				typeStyle.Render(col.DataType))
+				m.styles.SchemaColumnNameStyle.Render(col.Name),
+				m.styles.SchemaTypeStyle.Render(col.DataType))
 
 			// Add nullable indicator
 			if !col.IsNullable {
-				columnLine += fieldStyle.Render(" NOT NULL")
+				columnLine += m.styles.SchemaFieldStyle.Render(" NOT NULL")
 			}
 
 			// Add primary key indicator
 			if col.IsPrimaryKey {
-				columnLine += lipgloss.NewStyle().
-					Foreground(lipgloss.Color("205")).
-					Bold(true).
-					Render(" PK")
+				columnLine += m.styles.SchemaPrimaryKeyStyle.Render(" PK")
 			}
 
 			// Add foreign key indicator
 			if col.IsForeignKey {
 				fkInfo := fmt.Sprintf(" FK -> %s(%s)", col.ForeignTable, col.ForeignColumn)
-				columnLine += lipgloss.NewStyle().
-					Foreground(lipgloss.Color("214")).
-					Render(fkInfo)
+				columnLine += m.styles.SchemaForeignKeyStyle.Render(fkInfo)
 			}
 
 			lines = append(lines, columnLine)
@@ -240,27 +210,22 @@ func (m Model) renderBasicSchemaInfoLines(table driver.TableSchema) []string {
 
 	// Indexes section
 	if len(table.Indexes) > 0 {
-		lines = append(lines, sectionStyle.Render("Indexes:"))
+		lines = append(lines, m.styles.SchemaSectionStyle.Render("Indexes:"))
 
 		for _, idx := range table.Indexes {
-			indexLine := fmt.Sprintf("  %s", columnNameStyle.Render(idx.Name))
+			indexLine := fmt.Sprintf("  %s", m.styles.SchemaColumnNameStyle.Render(idx.Name))
 
 			// Add index type indicators
 			if idx.IsPrimary {
-				indexLine += lipgloss.NewStyle().
-					Foreground(lipgloss.Color("205")).
-					Bold(true).
-					Render(" PRIMARY")
+				indexLine += m.styles.SchemaPrimaryKeyStyle.Render(" PRIMARY")
 			} else if idx.IsUnique {
-				indexLine += lipgloss.NewStyle().
-					Foreground(lipgloss.Color("141")).
-					Render(" UNIQUE")
+				indexLine += m.styles.SchemaTypeStyle.Render(" UNIQUE")
 			}
 
 			// Add columns
 			if len(idx.Columns) > 0 {
 				colList := strings.Join(idx.Columns, ", ")
-				indexLine += fieldStyle.Render(fmt.Sprintf(" (%s)", colList))
+				indexLine += m.styles.SchemaFieldStyle.Render(fmt.Sprintf(" (%s)", colList))
 			}
 
 			lines = append(lines, indexLine)
@@ -270,8 +235,8 @@ func (m Model) renderBasicSchemaInfoLines(table driver.TableSchema) []string {
 
 	// Comment (if available)
 	if table.Comment != "" {
-		lines = append(lines, sectionStyle.Render("Comment:"))
-		lines = append(lines, fieldStyle.Render(table.Comment))
+		lines = append(lines, m.styles.SchemaSectionStyle.Render("Comment:"))
+		lines = append(lines, m.styles.SchemaFieldStyle.Render(table.Comment))
 	}
 
 	return lines
