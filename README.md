@@ -222,6 +222,7 @@ keybindings:
 
 - PostgreSQL
 - MariaDB (not supported yet)
+- Clickhouse
 
 ## Dependencies
 
