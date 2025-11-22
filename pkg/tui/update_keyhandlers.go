@@ -41,6 +41,33 @@ func (m Model) handleKeyPress(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		return m.handleDebugPanelKeys(msg)
 	}
 
+	// Handle help popup mode
+	if m.helpPopupMode {
+		key := msg.String()
+		maxScroll := m.getHelpMaxScroll()
+
+		switch key {
+		case "?", "esc":
+			m.helpPopupMode = false
+			m.helpPopupScroll = 0 // Reset scroll when closing
+		case "j", "down":
+			m.helpPopupScroll++
+			if m.helpPopupScroll > maxScroll {
+				m.helpPopupScroll = maxScroll
+			}
+		case "k", "up":
+			m.helpPopupScroll--
+			if m.helpPopupScroll < 0 {
+				m.helpPopupScroll = 0
+			}
+		case "g":
+			m.helpPopupScroll = 0
+		case "G":
+			m.helpPopupScroll = maxScroll
+		}
+		return m, nil
+	}
+
 	// Handle passphrase prompt mode first - highest priority for encryption
 	if m.passphrasePromptMode {
 		return m.handlePassphrasePromptKeys(msg)
@@ -670,6 +697,12 @@ func (m Model) handleNormalModeKeys(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 // handleTableViewModeKeys handles keyboard input in table view mode
 func (m Model) handleTableViewModeKeys(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	key := msg.String()
+
+	// Handle ? key for help popup
+	if key == "?" {
+		m.helpPopupMode = !m.helpPopupMode
+		return m, nil
+	}
 
 	// Handle : key for command mode (to allow :w for batch updates)
 	if key == ":" {

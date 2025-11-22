@@ -8,115 +8,117 @@ import (
 // Styles holds all styled components for the TUI
 type Styles struct {
 	// Title and text styles
-	TitleStyle                lipgloss.Style
-	HelpStyle                 lipgloss.Style
+	TitleStyle lipgloss.Style
+	HelpStyle  lipgloss.Style
 
 	// Border styles
-	BorderStyle               lipgloss.Style
-	ActiveBorderStyle         lipgloss.Style
-	InactiveBorderStyle       lipgloss.Style
-	InfoBorderStyle           lipgloss.Style
-	ScreenBorderStyle         lipgloss.Style
-	StatusBoxStyle            lipgloss.Style
+	BorderStyle         lipgloss.Style
+	ActiveBorderStyle   lipgloss.Style
+	InactiveBorderStyle lipgloss.Style
+	InfoBorderStyle     lipgloss.Style
+	ScreenBorderStyle   lipgloss.Style
+	StatusBoxStyle      lipgloss.Style
 
 	// Connection status styles
-	ConnectedStyle            lipgloss.Style
-	DisconnectedStyle         lipgloss.Style
-	ConnectingStyle           lipgloss.Style
+	ConnectedStyle    lipgloss.Style
+	DisconnectedStyle lipgloss.Style
+	ConnectingStyle   lipgloss.Style
 
 	// Command mode styles
-	CommandLineStyle          lipgloss.Style
+	CommandLineStyle lipgloss.Style
 
 	// Table selection styles
-	SelectedRowStyle          lipgloss.Style
+	SelectedRowStyle lipgloss.Style
 
 	// Search popup styles
-	PopupStyle                lipgloss.Style
-	SearchInputStyle          lipgloss.Style
-	ActiveSearchInputStyle    lipgloss.Style
-	InactiveSearchInputStyle  lipgloss.Style
-	OverlayStyle              lipgloss.Style
+	PopupStyle               lipgloss.Style
+	SearchInputStyle         lipgloss.Style
+	ActiveSearchInputStyle   lipgloss.Style
+	InactiveSearchInputStyle lipgloss.Style
+	OverlayStyle             lipgloss.Style
 
 	// Ghost text style
-	GhostTextStyle            lipgloss.Style
+	GhostTextStyle lipgloss.Style
 
 	// Status line styles
-	StatusLineStyle           lipgloss.Style
-	StatusLineLeftStyle       lipgloss.Style
+	StatusLineStyle     lipgloss.Style
+	StatusLineLeftStyle lipgloss.Style
 
 	// Error box style
-	ErrorBoxStyle             lipgloss.Style
+	ErrorBoxStyle lipgloss.Style
 
 	// Schema panel styles
-	SchemaTitleStyle          lipgloss.Style
-	SchemaSectionStyle        lipgloss.Style
-	SchemaFieldStyle          lipgloss.Style
-	SchemaColumnNameStyle     lipgloss.Style
-	SchemaTypeStyle           lipgloss.Style
-	SchemaPrimaryKeyStyle     lipgloss.Style
-	SchemaForeignKeyStyle     lipgloss.Style
-	SchemaEmptyStyle          lipgloss.Style
-	SchemaLoadingStyle        lipgloss.Style
+	SchemaTitleStyle      lipgloss.Style
+	SchemaSectionStyle    lipgloss.Style
+	SchemaFieldStyle      lipgloss.Style
+	SchemaColumnNameStyle lipgloss.Style
+	SchemaTypeStyle       lipgloss.Style
+	SchemaPrimaryKeyStyle lipgloss.Style
+	SchemaForeignKeyStyle lipgloss.Style
+	SchemaEmptyStyle      lipgloss.Style
+	SchemaLoadingStyle    lipgloss.Style
 
 	// Cell edit styles
-	CellEditInputBoxStyle     lipgloss.Style
-	CellEditPopupStyle        lipgloss.Style
-	CellPendingEditStyle      lipgloss.Style
+	CellEditInputBoxStyle lipgloss.Style
+	CellEditPopupStyle    lipgloss.Style
+	CellPendingEditStyle  lipgloss.Style
 
 	// Table data styles
-	TableFilterStyle          lipgloss.Style
-	TableClipboardStyle       lipgloss.Style
-	TableDeletedRowStyle      lipgloss.Style
+	TableFilterStyle     lipgloss.Style
+	TableClipboardStyle  lipgloss.Style
+	TableDeletedRowStyle lipgloss.Style
+	TableNormalModeStyle lipgloss.Style
+	TableVisualModeStyle lipgloss.Style
 
 	// SQL history styles
-	SQLHistoryTitleStyle      lipgloss.Style
-	SQLHistoryCountStyle      lipgloss.Style
-	SQLHistorySelectedStyle   lipgloss.Style
-	SQLHistoryNormalStyle     lipgloss.Style
-	SQLHistoryBorderStyle     lipgloss.Style
+	SQLHistoryTitleStyle    lipgloss.Style
+	SQLHistoryCountStyle    lipgloss.Style
+	SQLHistorySelectedStyle lipgloss.Style
+	SQLHistoryNormalStyle   lipgloss.Style
+	SQLHistoryBorderStyle   lipgloss.Style
 
 	// Record/Cell popup styles
-	RecordPopupStyle          lipgloss.Style
-	RecordKeyStyle            lipgloss.Style
-	RecordValueStyle          lipgloss.Style
-	RecordJSONIndicatorStyle  lipgloss.Style
+	RecordPopupStyle         lipgloss.Style
+	RecordKeyStyle           lipgloss.Style
+	RecordValueStyle         lipgloss.Style
+	RecordJSONIndicatorStyle lipgloss.Style
 
 	// JSON tree styles (for cell popup)
-	JSONKeyStyle              lipgloss.Style
-	JSONValueStyle            lipgloss.Style
-	JSONTypeStyle             lipgloss.Style
+	JSONKeyStyle   lipgloss.Style
+	JSONValueStyle lipgloss.Style
+	JSONTypeStyle  lipgloss.Style
 
 	// Debug panel styles
-	DebugBorderStyle          lipgloss.Style
-	DebugTitleStyle           lipgloss.Style
-	DebugSectionStyle         lipgloss.Style
-	DebugLogStyle             lipgloss.Style
-	DebugSelectedStyle        lipgloss.Style
-	DebugFocusIndicatorStyle  lipgloss.Style
-	DebugLeftColumnStyle      lipgloss.Style
-	DebugRightColumnStyle     lipgloss.Style
-	DebugContentStyle         lipgloss.Style
+	DebugBorderStyle         lipgloss.Style
+	DebugTitleStyle          lipgloss.Style
+	DebugSectionStyle        lipgloss.Style
+	DebugLogStyle            lipgloss.Style
+	DebugSelectedStyle       lipgloss.Style
+	DebugFocusIndicatorStyle lipgloss.Style
+	DebugLeftColumnStyle     lipgloss.Style
+	DebugRightColumnStyle    lipgloss.Style
+	DebugContentStyle        lipgloss.Style
 
 	// Connection manager styles
-	ConnManagerPopupStyle       lipgloss.Style
-	ConnManagerTitleStyle       lipgloss.Style
-	ConnManagerFilterStyle      lipgloss.Style
-	ConnManagerRowStyle         lipgloss.Style
-	ConnManagerInsertModeStyle  lipgloss.Style
-	ConnManagerNormalModeStyle  lipgloss.Style
-	ScrollIndicatorStyle        lipgloss.Style
-	ErrorStyle                  lipgloss.Style
-	TableRowStyle               lipgloss.Style
+	ConnManagerPopupStyle      lipgloss.Style
+	ConnManagerTitleStyle      lipgloss.Style
+	ConnManagerFilterStyle     lipgloss.Style
+	ConnManagerRowStyle        lipgloss.Style
+	ConnManagerInsertModeStyle lipgloss.Style
+	ConnManagerNormalModeStyle lipgloss.Style
+	ScrollIndicatorStyle       lipgloss.Style
+	ErrorStyle                 lipgloss.Style
+	TableRowStyle              lipgloss.Style
 
 	// Passphrase prompt styles
-	PassphrasePromptStyle       lipgloss.Style
-	PassphraseTitleStyle        lipgloss.Style
-	PassphraseInputStyle        lipgloss.Style
-	PassphraseKeyInfoStyle      lipgloss.Style
+	PassphrasePromptStyle  lipgloss.Style
+	PassphraseTitleStyle   lipgloss.Style
+	PassphraseInputStyle   lipgloss.Style
+	PassphraseKeyInfoStyle lipgloss.Style
 
 	// Text input styles
-	TextInputStyle              lipgloss.Style
-	TextInputPlaceholderStyle   lipgloss.Style
+	TextInputStyle            lipgloss.Style
+	TextInputPlaceholderStyle lipgloss.Style
 }
 
 // NewStyles creates a new Styles instance from a color scheme
@@ -296,6 +298,16 @@ func NewStyles(scheme config.ColorSchemeConfig) Styles {
 		TableDeletedRowStyle: lipgloss.NewStyle().
 			Foreground(lipgloss.Color(scheme.StatusError)).
 			Strikethrough(true),
+
+		TableNormalModeStyle: lipgloss.NewStyle().
+			Background(lipgloss.Color("12")). // Blue background for normal mode
+			Foreground(lipgloss.Color("0")).  // Black text
+			Bold(true),
+
+		TableVisualModeStyle: lipgloss.NewStyle().
+			Background(lipgloss.Color("13")). // Magenta background for visual mode
+			Foreground(lipgloss.Color("0")).  // Black text
+			Bold(true),
 
 		// SQL history styles
 		SQLHistoryTitleStyle: lipgloss.NewStyle().

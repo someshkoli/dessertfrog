@@ -101,6 +101,8 @@ type TableDataState struct {
 	deletedRows        map[int]bool        // Track which rows are marked for deletion (row index -> true)
 	deletedRowsCount   int                 // Number of rows marked for deletion
 	lastKeyPress       rune                // Last key pressed (for detecting dd sequence)
+	visualMode         bool                // Whether in visual mode (for selecting multiple rows)
+	visualStartRow     int                 // Starting row of visual selection
 }
 
 // CellValuePopupState manages cell value popup for viewing single cell content
@@ -252,6 +254,12 @@ type EncryptionState struct {
 	PassphrasePromptState
 }
 
+// HelpPopupState manages help popup state
+type HelpPopupState struct {
+	helpPopupMode   bool // Whether help popup is visible
+	helpPopupScroll int  // Scroll position in help popup
+}
+
 // UIState manages UI dimensions, styling, and command mode
 type UIState struct {
 	width         int
@@ -273,6 +281,7 @@ type Model struct {
 	DebugState
 	ConnectionManagerState
 	EncryptionState
+	HelpPopupState
 	UIState
 }
 
@@ -341,6 +350,7 @@ func NewModel(config DBConfig, keyBindings KeyBindings, styles Styles) Model {
 		TableDataState: TableDataState{
 			deletedRows:      make(map[int]bool),
 			deletedRowsCount: 0,
+			visualMode:       true,
 		},
 		CellOperationsState: CellOperationsState{
 			CellValuePopupState: CellValuePopupState{},

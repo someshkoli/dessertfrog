@@ -69,7 +69,43 @@ func (m Model) View() string {
 					helpText = "i: edit | dd: delete | v: view | V: record | y: copy | Y: row | /: filter | d: connections | hjkl: move | n/p: page | s: query | q: quit"
 				}
 			}
-			bottomBar = m.styles.HelpStyle.Render(helpText)
+
+			// Add mode indicator
+			var modeIndicator string
+			if m.visualMode {
+				modeIndicator = " VISUAL "
+				modeIndicator = m.styles.TableVisualModeStyle.Inline(true).Render(modeIndicator)
+			} else {
+				modeIndicator = " NORMAL "
+				modeIndicator = m.styles.TableNormalModeStyle.Inline(true).Render(modeIndicator)
+			}
+
+			// Calculate available width
+			contentWidth := m.width - 4
+			if contentWidth < 40 {
+				contentWidth = 40
+			}
+
+			helpTextRendered := m.styles.HelpStyle.Inline(true).Render(helpText)
+			helpWidth := lipgloss.Width(helpTextRendered)
+			modeWidth := lipgloss.Width(modeIndicator)
+
+			// Check if help text + mode indicator fits
+			totalWidth := helpWidth + 2 + modeWidth // 2 for spacing
+			if totalWidth > contentWidth {
+				// Not enough space - show shortened help
+				helpTextRendered = m.styles.HelpStyle.Inline(true).Render("?: help")
+				helpWidth = lipgloss.Width(helpTextRendered)
+			}
+
+			// Create spacing to push mode indicator to the right
+			spacingWidth := contentWidth - helpWidth - modeWidth
+			if spacingWidth < 1 {
+				spacingWidth = 1
+			}
+			spacing := lipgloss.NewStyle().Width(spacingWidth).Inline(true).Render("")
+
+			bottomBar = helpTextRendered + spacing + modeIndicator
 		}
 	} else {
 		// Normal table list view with split view (tables on left, schema on right)
@@ -259,6 +295,11 @@ func (m Model) View() string {
 	}
 
 	mainView := screenBorder.Render(content)
+
+	// Render help popup overlay if active
+	if m.helpPopupMode {
+		return m.renderHelpPopup(mainView)
+	}
 
 	// Render search popup overlay if active
 	if m.searchMode {
