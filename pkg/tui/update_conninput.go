@@ -15,15 +15,9 @@ func (m Model) handleConnectionInputKeys(msg tea.KeyMsg) (Model, tea.Cmd) {
 	// Handle escape key - cancel and go back to connection manager
 	if key == "esc" {
 		m.connInputMode = false
-		// Clear the form
-		m.connInputDriver = ""
-		m.connInputHost = ""
-		m.connInputPort = ""
-		m.connInputUsername = ""
-		m.connInputPassword = ""
-		m.connInputDatabase = ""
-		m.connInputSchema = ""
-		m.connInputCursor = 0
+		// Reset the form
+		m.connInputs = m.makeConnectionInputs()
+		m.connInputField = 0
 		m.connectionError = ""
 		// Go back to connection manager or disconnected state
 		if m.connectionStatus == Disconnected {
@@ -43,20 +37,22 @@ func (m Model) handleConnectionInputKeys(msg tea.KeyMsg) (Model, tea.Cmd) {
 
 	// Handle tab and shift+tab for field navigation
 	if key == "tab" {
+		m.connInputs[m.connInputField].Blur()
 		m.connInputField++
 		if m.connInputField > 6 { // 7 fields total (0-6)
 			m.connInputField = 0
 		}
-		m.connInputCursor = len(m.getCurrentInputValue())
+		m.connInputs[m.connInputField].Focus()
 		return m, nil
 	}
 
 	if key == "shift+tab" {
+		m.connInputs[m.connInputField].Blur()
 		m.connInputField--
 		if m.connInputField < 0 {
 			m.connInputField = 6
 		}
-		m.connInputCursor = len(m.getCurrentInputValue())
+		m.connInputs[m.connInputField].Focus()
 		return m, nil
 	}
 
@@ -65,118 +61,44 @@ func (m Model) handleConnectionInputKeys(msg tea.KeyMsg) (Model, tea.Cmd) {
 		return m.submitNewConnection()
 	}
 
-	// Handle backspace
-	if key == "backspace" {
-		currentValue := m.getCurrentInputValue()
-		if m.connInputCursor > 0 && m.connInputCursor <= len([]rune(currentValue)) {
-			runes := []rune(currentValue)
-			newValue := string(runes[:m.connInputCursor-1]) + string(runes[m.connInputCursor:])
-			m.setCurrentInputValue(newValue)
-			m.connInputCursor--
-		}
-		return m, nil
+	// Handle vim-style navigation in normal mode (ctrl+[ acts as escape from input)
+	if key == "ctrl+[" {
+		// Treat as escape
+		return m.handleConnectionInputKeys(tea.KeyMsg{Type: tea.KeyEsc})
 	}
 
-	// Handle left/right arrow keys for cursor movement
-	if key == "left" {
-		if m.connInputCursor > 0 {
-			m.connInputCursor--
-		}
-		return m, nil
-	}
-
-	if key == "right" {
-		currentValue := m.getCurrentInputValue()
-		if m.connInputCursor < len([]rune(currentValue)) {
-			m.connInputCursor++
-		}
-		return m, nil
-	}
-
-	// Handle home/end keys
-	if key == "home" {
-		m.connInputCursor = 0
-		return m, nil
-	}
-
-	if key == "end" {
-		currentValue := m.getCurrentInputValue()
-		m.connInputCursor = len([]rune(currentValue))
-		return m, nil
-	}
-
-	// Handle regular character input
-	if len(key) == 1 {
-		currentValue := m.getCurrentInputValue()
-		runes := []rune(currentValue)
-		newValue := string(runes[:m.connInputCursor]) + key + string(runes[m.connInputCursor:])
-		m.setCurrentInputValue(newValue)
-		m.connInputCursor++
-		return m, nil
-	}
-
-	return m, nil
-}
-
-// getCurrentInputValue returns the value of the currently focused input field
-func (m Model) getCurrentInputValue() string {
-	switch m.connInputField {
-	case 0:
-		return m.connInputDriver
-	case 1:
-		return m.connInputHost
-	case 2:
-		return m.connInputPort
-	case 3:
-		return m.connInputUsername
-	case 4:
-		return m.connInputPassword
-	case 5:
-		return m.connInputDatabase
-	case 6:
-		return m.connInputSchema
-	default:
-		return ""
-	}
-}
-
-// setCurrentInputValue sets the value of the currently focused input field
-func (m *Model) setCurrentInputValue(value string) {
-	switch m.connInputField {
-	case 0:
-		m.connInputDriver = value
-	case 1:
-		m.connInputHost = value
-	case 2:
-		m.connInputPort = value
-	case 3:
-		m.connInputUsername = value
-	case 4:
-		m.connInputPassword = value
-	case 5:
-		m.connInputDatabase = value
-	case 6:
-		m.connInputSchema = value
-	}
+	// Pass other keys to the focused textinput
+	var cmd tea.Cmd
+	m.connInputs[m.connInputField], cmd = m.connInputs[m.connInputField].Update(msg)
+	return m, cmd
 }
 
 // submitNewConnection creates a new database connection from the input form
 func (m Model) submitNewConnection() (Model, tea.Cmd) {
+	// Get values from textinputs
+	driver := strings.TrimSpace(m.connInputs[0].Value())
+	host := strings.TrimSpace(m.connInputs[1].Value())
+	portStr := strings.TrimSpace(m.connInputs[2].Value())
+	username := strings.TrimSpace(m.connInputs[3].Value())
+	password := m.connInputs[4].Value() // Don't trim password
+	database := strings.TrimSpace(m.connInputs[5].Value())
+	schema := strings.TrimSpace(m.connInputs[6].Value())
+
 	// Validate inputs
-	if m.connInputDriver == "" {
+	if driver == "" {
 		m.connectionError = "Driver is required"
 		return m, nil
 	}
 
-	if m.connInputHost == "" {
-		m.connectionError = "Host is required"
-		return m, nil
+	// Set default host if empty
+	if host == "" {
+		host = "localhost"
 	}
 
 	// Parse port
 	var port int
-	if m.connInputPort != "" {
-		p, err := strconv.Atoi(m.connInputPort)
+	if portStr != "" {
+		p, err := strconv.Atoi(portStr)
 		if err != nil {
 			m.connectionError = "Invalid port number"
 			return m, nil
@@ -184,7 +106,7 @@ func (m Model) submitNewConnection() (Model, tea.Cmd) {
 		port = p
 	} else {
 		// Set default port based on driver
-		switch strings.ToLower(m.connInputDriver) {
+		switch strings.ToLower(driver) {
 		case "postgres", "postgresql":
 			port = 5432
 		case "mariadb", "mysql":
@@ -192,15 +114,14 @@ func (m Model) submitNewConnection() (Model, tea.Cmd) {
 		case "clickhouse", "ch":
 			port = 9000
 		default:
-			m.connectionError = "Unknown driver: " + m.connInputDriver
+			m.connectionError = "Unknown driver: " + driver
 			return m, nil
 		}
 	}
 
 	// Set default username if not provided
-	username := m.connInputUsername
 	if username == "" {
-		switch strings.ToLower(m.connInputDriver) {
+		switch strings.ToLower(driver) {
 		case "postgres", "postgresql":
 			username = "postgres"
 		case "mariadb", "mysql":
@@ -211,9 +132,8 @@ func (m Model) submitNewConnection() (Model, tea.Cmd) {
 	}
 
 	// Set default database if not provided
-	database := m.connInputDatabase
 	if database == "" {
-		switch strings.ToLower(m.connInputDriver) {
+		switch strings.ToLower(driver) {
 		case "postgres", "postgresql":
 			database = "postgres"
 		case "mariadb", "mysql":
@@ -224,8 +144,7 @@ func (m Model) submitNewConnection() (Model, tea.Cmd) {
 	}
 
 	// Set default schema for postgres
-	schema := m.connInputSchema
-	if schema == "" && (strings.ToLower(m.connInputDriver) == "postgres" || strings.ToLower(m.connInputDriver) == "postgresql") {
+	if schema == "" && (strings.ToLower(driver) == "postgres" || strings.ToLower(driver) == "postgresql") {
 		schema = "public"
 	}
 
@@ -236,11 +155,11 @@ func (m Model) submitNewConnection() (Model, tea.Cmd) {
 
 	// Create connection entry
 	connEntry := connhistory.ConnectionEntry{
-		Driver:   m.connInputDriver,
-		Host:     m.connInputHost,
+		Driver:   driver,
+		Host:     host,
 		Port:     port,
 		Username: username,
-		Password: m.connInputPassword,
+		Password: password,
 		Database: database,
 		Schema:   schema,
 	}

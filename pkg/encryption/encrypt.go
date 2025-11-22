@@ -23,8 +23,9 @@ var ErrPassphraseRequired = errors.New("SSH key requires passphrase")
 
 // Config holds encryption configuration
 type Config struct {
-	KeyPath string
-	KeyType KeyType
+	KeyPath          string
+	KeyType          KeyType
+	DisableEncryption bool // If true, user chose to continue without encryption
 }
 
 // ConfigPath returns the path to the encryption config file
@@ -74,14 +75,17 @@ func LoadConfig() (*Config, error) {
 			config.KeyPath = value
 		case "key_type":
 			config.KeyType = KeyType(value)
+		case "disable_encryption":
+			config.DisableEncryption = value == "true"
 		}
 	}
 
-	if config.KeyPath == "" {
-		return nil, nil
+	// Return config if encryption is disabled OR if key path is set
+	if config.DisableEncryption || config.KeyPath != "" {
+		return config, nil
 	}
 
-	return config, nil
+	return nil, nil
 }
 
 // SaveConfig saves the encryption configuration
@@ -91,7 +95,12 @@ func SaveConfig(config *Config) error {
 		return err
 	}
 
-	content := fmt.Sprintf("key_path=%s\nkey_type=%s\n", config.KeyPath, config.KeyType)
+	var content string
+	if config.DisableEncryption {
+		content = "disable_encryption=true\n"
+	} else {
+		content = fmt.Sprintf("key_path=%s\nkey_type=%s\n", config.KeyPath, config.KeyType)
+	}
 	return os.WriteFile(path, []byte(content), 0600)
 }
 

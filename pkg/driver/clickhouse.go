@@ -669,6 +669,100 @@ func (c *ClickHouseDriver) UpdateCell(ctx context.Context, tableSchema *TableSch
 	return nil
 }
 
+// DeleteRows deletes multiple rows from a table in a batch operation
+func (c *ClickHouseDriver) DeleteRows(ctx context.Context, tableSchema *TableSchema, columns []string, rows [][]string) (int64, error) {
+	if c.conn == nil {
+		return 0, fmt.Errorf("connection is not established")
+	}
+
+	if tableSchema == nil {
+		return 0, fmt.Errorf("table schema is required for delete")
+	}
+
+	if len(rows) == 0 {
+		return 0, nil // Nothing to delete
+	}
+
+	// Determine which columns to use in WHERE clause
+	// Priority: 1) Primary keys (if available), 2) All columns
+	var whereColumns []string
+
+	// Check if we have table schema with primary key information
+	if len(tableSchema.Columns) > 0 {
+		// Find primary key columns
+		for _, col := range tableSchema.Columns {
+			if col.IsPrimaryKey {
+				whereColumns = append(whereColumns, col.Name)
+			}
+		}
+	}
+
+	// If no primary keys found, use all columns to identify the row
+	if len(whereColumns) == 0 {
+		whereColumns = columns
+	}
+
+	// Build DELETE query with multiple row conditions combined with OR
+	// Format: WHERE (col1 = val1 AND col2 = val2) OR (col1 = val3 AND col2 = val4) OR ...
+	var whereClauses []string
+
+	for _, row := range rows {
+		var rowWhereParts []string
+
+		// Build WHERE clause for this row (conditions combined with AND)
+		for _, col := range whereColumns {
+			// Find the index of this column in the columns array
+			colIdx := -1
+			for i, c := range columns {
+				if c == col {
+					colIdx = i
+					break
+				}
+			}
+
+			if colIdx >= 0 && colIdx < len(row) {
+				if row[colIdx] == "NULL" {
+					rowWhereParts = append(rowWhereParts, fmt.Sprintf("`%s` IS NULL", col))
+				} else {
+					// Escape single quotes in values
+					escapedValue := strings.ReplaceAll(row[colIdx], "'", "''")
+					rowWhereParts = append(rowWhereParts, fmt.Sprintf("`%s` = '%s'", col, escapedValue))
+				}
+			}
+		}
+
+		if len(rowWhereParts) > 0 {
+			// Wrap each row's conditions in parentheses and combine with AND
+			whereClauses = append(whereClauses, "("+strings.Join(rowWhereParts, " AND ")+")")
+		}
+	}
+
+	if len(whereClauses) == 0 {
+		return 0, fmt.Errorf("no valid rows to delete")
+	}
+
+	// Combine all row WHERE clauses with OR
+	whereClause := strings.Join(whereClauses, " OR ")
+
+	// Build ALTER TABLE DELETE query (ClickHouse uses ALTER TABLE for deletes)
+	query := fmt.Sprintf(
+		"ALTER TABLE `%s`.`%s` DELETE WHERE %s",
+		tableSchema.SchemaName,
+		tableSchema.TableName,
+		whereClause,
+	)
+
+	// Execute the DELETE
+	err := c.conn.Exec(ctx, query)
+	if err != nil {
+		return 0, fmt.Errorf("failed to delete rows: %w\nQuery:\n%s", err, query)
+	}
+
+	// ClickHouse ALTER TABLE DELETE is asynchronous and doesn't return affected rows count
+	// Return the number of rows we attempted to delete
+	return int64(len(rows)), nil
+}
+
 // Helper functions for ClickHouse data scanning
 
 // convertRowCountToInt64 converts any numeric type to int64 using reflection

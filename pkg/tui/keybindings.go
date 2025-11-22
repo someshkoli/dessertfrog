@@ -9,6 +9,8 @@ const (
 	CommandNavigateDown         Command = "navigate_down"
 	CommandNavigateLeft         Command = "navigate_left"
 	CommandNavigateRight        Command = "navigate_right"
+	CommandNavigateLastColumn   Command = "navigate_last_column"
+	CommandNavigateFirstColumn  Command = "navigate_first_column"
 	CommandNavigateWordForward  Command = "navigate_word_forward"
 	CommandNavigateWordBackward Command = "navigate_word_backward"
 	CommandPageUp               Command = "page_up"
@@ -45,6 +47,7 @@ const (
 	CommandNextPage       Command = "next_page"
 	CommandPreviousPage   Command = "previous_page"
 	CommandEditCell       Command = "edit_cell"
+	CommandDeleteRow      Command = "CommandDeleteRow"
 	CommandCopyCellValue  Command = "copy_cell_value"
 	CommandCopyRow        Command = "copy_row"
 	CommandOpenCellPopup  Command = "open_cell_popup"
@@ -125,6 +128,9 @@ func DefaultKeyBindings() KeyBindings {
 			{"left", CommandNavigateLeft},
 			{"l", CommandNavigateRight},
 			{"right", CommandNavigateRight},
+			{"$", CommandNavigateLastColumn},
+			{"_", CommandNavigateFirstColumn},
+			{"0", CommandNavigateFirstColumn},
 			{"w", CommandNavigateWordForward},
 			{"b", CommandNavigateWordBackward},
 			{"g", CommandGoToTop},

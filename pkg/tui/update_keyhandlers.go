@@ -210,10 +210,22 @@ func (m Model) handleCommandModeKeys(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		if m.commandBuffer == ":q" || m.commandBuffer == ":quit" {
 			return m, tea.Quit
 		} else if m.commandBuffer == ":w" || m.commandBuffer == ":w " {
-			// Batch update all cells in buffer
+			// Batch update all cells in buffer AND/OR batch delete rows
 			m.commandMode = false
 			m.commandBuffer = ""
-			return m.batchUpdateCells()
+
+			// Check if we have both updates and deletes
+			hasUpdates := m.cellEditBufferCount > 0
+			hasDeletes := m.deletedRowsCount > 0
+
+			if hasDeletes {
+				return m.batchDeleteRows()
+			} else if hasUpdates {
+				return m.batchUpdateCells()
+			}
+
+			// Nothing to do
+			return m, nil
 		}
 		// Reset command mode
 		m.commandMode = false
@@ -506,7 +518,7 @@ func (m Model) handleNormalModeKeys(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		case CommandOpenConnectionManager:
 			// Open connection manager popup
 			m.connManagerMode = true
-			m.connManagerFilter = ""
+			m.connManagerFilter = m.makeConnectionManagerFilter()
 			m.connManagerSelected = 0
 			m.connManagerScroll = 0
 			m.connManagerInsertMode = true // Start in insert mode
@@ -666,6 +678,34 @@ func (m Model) handleTableViewModeKeys(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		return m, nil
 	}
 
+	// Handle dd key sequence (vim-style row deletion)
+	if key == "d" {
+		if m.lastKeyPress == 'd' {
+			// Second 'd' pressed - mark current row for deletion
+			if len(m.tableData) > 0 && m.selectedDataRow < len(m.tableData) {
+				if m.deletedRows[m.selectedDataRow] {
+					// Already marked - unmark it
+					delete(m.deletedRows, m.selectedDataRow)
+					m.deletedRowsCount--
+				} else {
+					// Mark for deletion
+					m.deletedRows[m.selectedDataRow] = true
+					m.deletedRowsCount++
+				}
+			}
+			m.lastKeyPress = 0 // Reset
+			return m, nil
+		}
+		// First 'd' pressed - store it
+		m.lastKeyPress = 'd'
+		return m, nil
+	}
+
+	// Reset lastKeyPress if any other key is pressed
+	if m.lastKeyPress == 'd' {
+		m.lastKeyPress = 0
+	}
+
 	// Check key bindings for commands
 	if cmd, ok := getCommand(key, m.keyBindings.TableView); ok {
 		switch cmd {
@@ -731,7 +771,7 @@ func (m Model) handleTableViewModeKeys(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		case CommandOpenConnectionManager:
 			// Open connection manager popup
 			m.connManagerMode = true
-			m.connManagerFilter = ""
+			m.connManagerFilter = m.makeConnectionManagerFilter()
 			m.connManagerSelected = 0
 			m.connManagerScroll = 0
 			m.connManagerInsertMode = true // Start in insert mode
@@ -805,6 +845,20 @@ func (m Model) handleTableViewModeKeys(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 			if m.selectedDataRow > 0 {
 				m.selectedDataRow--
 				m = m.adjustTableDataScroll()
+			}
+
+		case CommandNavigateLastColumn:
+			// Move cursor up
+			if m.selectedDataRow > 0 {
+				m.selectedDataCol = len(m.tableColumns) - 1
+				m = m.adjustTableDataHorizontalScroll()
+			}
+
+		case CommandNavigateFirstColumn:
+			// Move cursor up
+			if m.selectedDataRow > 0 {
+				m.selectedDataCol = 0
+				m = m.adjustTableDataHorizontalScroll()
 			}
 
 		case CommandGoToTop:

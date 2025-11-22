@@ -23,18 +23,14 @@ func (m Model) renderConnectionManagerPopup(baseView string) string {
 
 	// Filter input
 	filterPrompt := "Filter: "
-	ghostText := ""
-	if m.connManagerFilter == "" {
-		ghostText = m.styles.GhostTextStyle.Render("Type to filter connections...")
-	}
-	filterInput := m.styles.ConnManagerFilterStyle.Render(filterPrompt + m.connManagerFilter + ghostText)
+	filterInput := m.styles.ConnManagerFilterStyle.Render(filterPrompt + m.connManagerFilter.View())
 	content.WriteString(filterInput)
 	content.WriteString("\n\n")
 
 	// Connection list
 	connections := m.filteredConnections
 	if len(connections) == 0 {
-		if m.connManagerFilter != "" {
+		if m.connManagerFilter.Value() != "" {
 			content.WriteString(m.styles.ErrorStyle.Render("No connections match filter"))
 		} else {
 			content.WriteString(m.styles.ErrorStyle.Render("No saved connections"))
@@ -86,7 +82,7 @@ func (m Model) renderConnectionManagerPopup(baseView string) string {
 		helpText = "type to filter  enter: connect  esc: normal mode"
 		modeIndicator = " INSERT "
 	} else {
-		helpText = "hjkl: navigate  C: new connection  enter: connect  esc: close  q: quit"
+		helpText = "hjkl: navigate  c: new connection  enter: connect  esc: close  q: quit"
 		modeIndicator = " NORMAL "
 	}
 

@@ -152,6 +152,24 @@ func updateCellValue(drv driver.Driver, tableSchema *driver.TableSchema, columns
 	}
 }
 
+// deleteRows deletes multiple rows from the database
+func deleteRows(drv driver.Driver, tableSchema *driver.TableSchema, columns []string, rows [][]string) tea.Cmd {
+	return func() tea.Msg {
+		ctx := context.Background()
+
+		// Execute batch DELETE
+		rowsAffected, err := drv.DeleteRows(ctx, tableSchema, columns, rows)
+		if err != nil {
+			return rowsDeleteFailedMsg{err: err}
+		}
+
+		// Return success with rows affected count
+		return rowsDeleteSuccessMsg{
+			rowsAffected: rowsAffected,
+		}
+	}
+}
+
 // clearClipboardMessage returns a command that clears the clipboard message after a delay
 func clearClipboardMessage() tea.Cmd {
 	return tea.Tick(time.Second*2, func(t time.Time) tea.Msg {
@@ -168,6 +186,12 @@ func checkEncryptionSetup() tea.Cmd {
 		if err != nil || config == nil {
 			// No encryption config found - need to set up
 			return encryptionSetupRequiredMsg{}
+		}
+
+		// Check if encryption is disabled
+		if config.DisableEncryption {
+			// User chose to disable encryption - continue without it
+			return encryptionDisabledMsg{}
 		}
 
 		// Config exists, try to load the key

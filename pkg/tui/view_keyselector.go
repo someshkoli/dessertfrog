@@ -84,16 +84,16 @@ func (m Model) renderKeySelectorPopup(baseView string) string {
 	var modeIndicator string
 	if m.keySelectorInsertMode {
 		if len(keys) == 0 {
-			helpText = "g: generate SSH key  esc: cancel"
+			helpText = "g: generate SSH key  x: continue without encryption  esc: cancel"
 		} else {
-			helpText = "type to filter  enter: select  esc: normal mode"
+			helpText = "type to filter  enter: select  x: disable encryption  esc: normal mode"
 		}
 		modeIndicator = " INSERT "
 	} else {
 		if len(keys) == 0 {
-			helpText = "g: generate SSH key  i: insert mode  esc: cancel"
+			helpText = "g: generate SSH key  x: continue without encryption  i: insert  esc: cancel"
 		} else {
-			helpText = "hjkl: navigate  g/G: top/bottom  i: insert  enter: select  esc: cancel"
+			helpText = "hjkl: navigate  g/G: top/bottom  x: disable encryption  i: insert  enter: select  esc: cancel"
 		}
 		modeIndicator = " NORMAL "
 	}

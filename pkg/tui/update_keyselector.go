@@ -1,7 +1,7 @@
 package tui
 
 import (
-	"github.com/charmbracelet/bubbletea"
+	tea "github.com/charmbracelet/bubbletea"
 	"github.com/someshkoli/dessertfrog/pkg/encryption"
 	"github.com/someshkoli/dessertfrog/pkg/helpers"
 )
@@ -27,6 +27,19 @@ func (m Model) handleKeySelectorKeys(msg tea.KeyMsg) (Model, tea.Cmd) {
 		}
 	}
 
+	// Handle 'x' key - disable encryption and continue
+	if key == "x" {
+		// Close key selector
+		m.keySelectorMode = false
+		m.keySelectorFilter = ""
+		m.keySelectorSelected = 0
+		m.keySelectorScroll = 0
+		m.keySelectorInsertMode = true
+
+		// Save config with encryption disabled
+		return m, disableEncryptionAndContinue()
+	}
+
 	// Handle 'i' key - enter insert mode from normal mode
 	if key == "i" && !m.keySelectorInsertMode {
 		m.keySelectorInsertMode = true
@@ -34,16 +47,18 @@ func (m Model) handleKeySelectorKeys(msg tea.KeyMsg) (Model, tea.Cmd) {
 	}
 
 	// Handle 'g' key - generate SSH key when no keys available
-	if key == "g" {
-		if len(m.availableKeys) == 0 {
-			// Trigger SSH key generation
-			return m, generateSSHKeyCmd("")
-		} else if !m.keySelectorInsertMode {
-			// In normal mode with keys, 'g' means go to top
-			m.keySelectorSelected = 0
-			m.keySelectorScroll = 0
-			return m, nil
-		}
+	if key == "g" && !m.keySelectorInsertMode {
+		// Show passphrase prompt for new key generation
+		m.passphrasePromptMode = true
+		m.passphraseInput = m.makePassphraseInput()
+		m.passphraseKeyName = "id_dessertfrog"
+		m.passphraseKeyPath = ""
+		m.passphraseForNewKey = true
+		// Close key selector
+		m.keySelectorMode = false
+		m.keySelectorFilter = ""
+		m.keySelectorInsertMode = true
+		return m, nil
 	}
 
 	// In insert mode, handle text input
@@ -67,6 +82,36 @@ func (m Model) handleKeySelectorInsertMode(msg tea.KeyMsg) (Model, tea.Cmd) {
 			// Reset selection
 			m.keySelectorSelected = 0
 			m.keySelectorScroll = 0
+		}
+		return m, nil
+	case "down":
+		// Navigate down
+		if len(m.filteredKeys) > 0 {
+			m.keySelectorSelected++
+			if m.keySelectorSelected >= len(m.filteredKeys) {
+				m.keySelectorSelected = len(m.filteredKeys) - 1
+			}
+
+			// Auto-scroll
+			maxVisible := helpers.Min(20, m.height-16)
+			if m.keySelectorSelected >= m.keySelectorScroll+maxVisible {
+				m.keySelectorScroll = m.keySelectorSelected - maxVisible + 1
+			}
+		}
+		return m, nil
+
+	case "up":
+		// Navigate up
+		if len(m.filteredKeys) > 0 {
+			m.keySelectorSelected--
+			if m.keySelectorSelected < 0 {
+				m.keySelectorSelected = 0
+			}
+
+			// Auto-scroll
+			if m.keySelectorSelected < m.keySelectorScroll {
+				m.keySelectorScroll = m.keySelectorSelected
+			}
 		}
 		return m, nil
 
@@ -214,6 +259,22 @@ func selectEncryptionKey(key *encryption.Key) tea.Cmd {
 	}
 }
 
+// disableEncryptionAndContinue saves config to disable encryption
+func disableEncryptionAndContinue() tea.Cmd {
+	return func() tea.Msg {
+		// Save config with encryption disabled
+		config := &encryption.Config{
+			DisableEncryption: true,
+		}
+
+		if err := encryption.SaveConfig(config); err != nil {
+			return encryptionSetupErrorMsg{err: err}
+		}
+
+		return encryptionDisabledMsg{}
+	}
+}
+
 // Message types for encryption flow
 type sshKeyGenerationMsg struct {
 	success bool
@@ -234,3 +295,5 @@ type encryptionSetupCompleteMsg struct {
 type encryptionSetupErrorMsg struct {
 	err error
 }
+
+type encryptionDisabledMsg struct{}

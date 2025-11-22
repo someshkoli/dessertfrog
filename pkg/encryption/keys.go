@@ -34,15 +34,17 @@ func DiscoverKeys() ([]Key, error) {
 
 	// Discover SSH keys
 	sshKeys, err := discoverSSHKeys()
-	if err == nil {
-		keys = append(keys, sshKeys...)
+	if err != nil {
+		return nil, err
 	}
+	keys = append(keys, sshKeys...)
 
 	// Discover GPG keys
 	gpgKeys, err := discoverGPGKeys()
-	if err == nil {
-		keys = append(keys, gpgKeys...)
+	if err != nil {
+		return nil, err
 	}
+	keys = append(keys, gpgKeys...)
 
 	return keys, nil
 }
@@ -73,9 +75,9 @@ func discoverSSHKeys() ([]Key, error) {
 		name := entry.Name()
 		// Look for private keys (not .pub files, not known_hosts, config, etc.)
 		if strings.HasSuffix(name, ".pub") ||
-		   name == "known_hosts" ||
-		   name == "config" ||
-		   name == "authorized_keys" {
+			name == "known_hosts" ||
+			name == "config" ||
+			name == "authorized_keys" {
 			continue
 		}
 

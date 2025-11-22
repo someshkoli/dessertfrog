@@ -67,3 +67,11 @@ type cellUpdateSuccessMsg struct {
 type cellUpdateFailedMsg struct {
 	err error
 }
+
+// Row delete messages
+type rowsDeleteSuccessMsg struct {
+	rowsAffected int64
+}
+type rowsDeleteFailedMsg struct {
+	err error
+}

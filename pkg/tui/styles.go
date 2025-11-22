@@ -66,6 +66,7 @@ type Styles struct {
 	// Table data styles
 	TableFilterStyle          lipgloss.Style
 	TableClipboardStyle       lipgloss.Style
+	TableDeletedRowStyle      lipgloss.Style
 
 	// SQL history styles
 	SQLHistoryTitleStyle      lipgloss.Style
@@ -112,6 +113,10 @@ type Styles struct {
 	PassphraseTitleStyle        lipgloss.Style
 	PassphraseInputStyle        lipgloss.Style
 	PassphraseKeyInfoStyle      lipgloss.Style
+
+	// Text input styles
+	TextInputStyle              lipgloss.Style
+	TextInputPlaceholderStyle   lipgloss.Style
 }
 
 // NewStyles creates a new Styles instance from a color scheme
@@ -288,6 +293,10 @@ func NewStyles(scheme config.ColorSchemeConfig) Styles {
 			Foreground(lipgloss.Color(scheme.TableClipboard)).
 			Bold(true),
 
+		TableDeletedRowStyle: lipgloss.NewStyle().
+			Foreground(lipgloss.Color(scheme.StatusError)).
+			Strikethrough(true),
+
 		// SQL history styles
 		SQLHistoryTitleStyle: lipgloss.NewStyle().
 			Bold(true).
@@ -433,5 +442,14 @@ func NewStyles(scheme config.ColorSchemeConfig) Styles {
 		PassphraseKeyInfoStyle: lipgloss.NewStyle().
 			Foreground(lipgloss.Color("241")).
 			Italic(true),
+
+		// Text input styles
+		TextInputStyle: lipgloss.NewStyle().
+			Foreground(lipgloss.Color(scheme.Text)).
+			Background(lipgloss.Color(scheme.InputBackground)),
+
+		TextInputPlaceholderStyle: lipgloss.NewStyle().
+			Foreground(lipgloss.Color(scheme.HelpText)).
+			Background(lipgloss.Color(scheme.InputBackground)),
 	}
 }

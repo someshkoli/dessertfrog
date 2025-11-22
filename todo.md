@@ -1,0 +1,6 @@
+- move all styles at one place
+- move all key handlers to commands
+- deeply crawl through authtication flow
+- validate workign of continue without encryption
+- break down model into smaller parts
+- do state management of individual views in seprate place

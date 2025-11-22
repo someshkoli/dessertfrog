@@ -10,12 +10,12 @@ import (
 // View renders the UI
 func (m Model) View() string {
 	// Calculate available dimensions
-	availableWidth := m.width - 6   // Account for screen border padding (1+1) and border (1+1) and margin
+	availableWidth := m.width - 1   // Account for screen border padding (1+1) and border (1+1)
 	availableHeight := m.height - 6 // Account for screen border, title, status line
 
 	// Build the main content (without help and status line)
 	var mainContent string
-	var helpMessage string
+	var bottomBar string
 
 	// Check if in table view mode
 	if m.tableViewMode {
@@ -29,10 +29,10 @@ func (m Model) View() string {
 		// Inline search bar for content filtering
 		if m.inlineSearchMode {
 			searchBar := m.renderInlineSearchBar()
-			helpMessage = searchBar + "\n" + m.styles.HelpStyle.Render("Enter: apply filter | Esc: cancel")
+			bottomBar = searchBar + "\n" + m.styles.HelpStyle.Render("Enter: apply filter | Esc: cancel")
 		} else if m.commandMode {
 			cmdLine := m.styles.CommandLineStyle.Render(m.commandBuffer + "█")
-			helpMessage = cmdLine + "\n" + m.styles.HelpStyle.Render("Enter: execute | Esc: cancel")
+			bottomBar = cmdLine + "\n" + m.styles.HelpStyle.Render("Enter: execute | Esc: cancel")
 		} else if m.sqlQueryMode {
 			sqlPrompt := "SQL Query: "
 			// Insert cursor at the correct position (using runes for UTF-8)
@@ -48,28 +48,28 @@ func (m Model) View() string {
 			afterCursor := string(runes[cursorPos:])
 			sqlInput := m.styles.CommandLineStyle.Render(sqlPrompt + beforeCursor + "█" + afterCursor)
 			if m.sqlHistorySuggestionsVisible {
-				helpMessage = sqlInput + "\n" + m.styles.HelpStyle.Render("Enter: select | ↑/↓: navigate | Esc: close suggestions | Ctrl+N: toggle")
+				bottomBar = sqlInput + "\n" + m.styles.HelpStyle.Render("Enter: select | ↑/↓: navigate | Esc: close suggestions | Ctrl+N: toggle")
 			} else {
-				helpMessage = sqlInput + "\n" + m.styles.HelpStyle.Render("Enter: execute | Esc: cancel | Ctrl+N: show history")
+				bottomBar = sqlInput + "\n" + m.styles.HelpStyle.Render("Enter: execute | Esc: cancel | Ctrl+N: show history")
 			}
 		} else {
 			// Show help text with 's' to view/edit query
 			var helpText string
-			if m.cellEditBufferCount > 0 {
-				// Show :w hint when there are pending edits
+			if m.cellEditBufferCount > 0 || m.deletedRowsCount > 0 {
+				// Show :w hint when there are pending edits or deletions
 				if m.isCustomQuery {
-					helpText = "i: edit | :w: save all | v: view | y: copy | Y: row | /: filter | d: connections | hjkl: move | s: query | q: quit | o: back"
+					helpText = "i: edit | dd: delete | :w: save all | v: view | y: copy | Y: row | /: filter | d: connections | hjkl: move | s: query | q: quit | o: back"
 				} else {
-					helpText = "i: edit | :w: save all | v: view | y: copy | Y: row | /: filter | d: connections | hjkl: move | n/p: page | s: query | q: quit"
+					helpText = "i: edit | dd: delete | :w: save all | v: view | y: copy | Y: row | /: filter | d: connections | hjkl: move | n/p: page | s: query | q: quit"
 				}
 			} else {
 				if m.isCustomQuery {
-					helpText = "i: edit | v: view | V: record | y: copy | Y: row | /: filter | d: connections | hjkl: move | s: query | q: quit | o: back"
+					helpText = "i: edit | dd: delete | v: view | V: record | y: copy | Y: row | /: filter | d: connections | hjkl: move | s: query | q: quit | o: back"
 				} else {
-					helpText = "i: edit | v: view | V: record | y: copy | Y: row | /: filter | d: connections | hjkl: move | n/p: page | s: query | q: quit"
+					helpText = "i: edit | dd: delete | v: view | V: record | y: copy | Y: row | /: filter | d: connections | hjkl: move | n/p: page | s: query | q: quit"
 				}
 			}
-			helpMessage = m.styles.HelpStyle.Render(helpText)
+			bottomBar = m.styles.HelpStyle.Render(helpText)
 		}
 	} else {
 		// Normal table list view with split view (tables on left, schema on right)
@@ -83,28 +83,25 @@ func (m Model) View() string {
 			var filterLine string
 			if m.connManagerInsertMode {
 				filterPrompt := "Filter: "
-				ghostText := ""
-				if m.connManagerFilter == "" {
-					ghostText = m.styles.GhostTextStyle.Render("Type to filter connections...")
-				}
-				filterLine = m.styles.ConnManagerFilterStyle.Render(filterPrompt + m.connManagerFilter + ghostText)
+				filterLine = m.styles.ConnManagerFilterStyle.Render(filterPrompt + m.connManagerFilter.View())
 			}
 
 			connections := m.filteredConnections
 			if len(connections) == 0 && m.connHistory != nil {
-				if m.connManagerFilter == "" {
+				filterValue := m.connManagerFilter.Value()
+				if filterValue == "" {
 					connections = m.connHistory.GetAll()
 				} else {
-					connections = m.connHistory.Filter(m.connManagerFilter)
+					connections = m.connHistory.Filter(filterValue)
 				}
 			}
 
-			if m.connManagerInsertMode && m.connManagerFilter != "" {
+			if m.connManagerInsertMode && m.connManagerFilter.Value() != "" {
 				mainContent += filterLine + "\n\n"
 			}
 
 			if len(connections) == 0 {
-				if m.connManagerFilter != "" {
+				if m.connManagerFilter.Value() != "" {
 					mainContent += m.styles.ErrorStyle.Render("No connections match filter") + "\n"
 				} else {
 					mainContent += m.styles.ErrorStyle.Render("No saved connections") + "\n"
@@ -144,7 +141,7 @@ func (m Model) View() string {
 				modeStyle = m.styles.ConnManagerNormalModeStyle
 			}
 
-			helpMessage = lipgloss.JoinHorizontal(
+			bottomBar = lipgloss.JoinHorizontal(
 				lipgloss.Left,
 				m.styles.HelpStyle.Render(helpText),
 				"  ",
@@ -156,7 +153,13 @@ func (m Model) View() string {
 			mainContent += errorBox
 		} else if !m.sqlQueryMode {
 			// Row 2: Split view - tables list on left, schema panel on right
-			splitWidth := availableWidth / 2
+			// Each panel has border (2 chars) + padding (2 chars) = 4 chars overhead
+			// Total overhead for 2 panels = 8 chars
+			contentWidth := availableWidth - 8
+			if contentWidth < 20 {
+				contentWidth = 20
+			}
+			splitWidth := contentWidth / 2
 
 			// Calculate panel height - pass directly, let functions handle internally
 			panelHeight := availableHeight
@@ -165,10 +168,10 @@ func (m Model) View() string {
 			}
 
 			// Left side: tables list
-			tablesBox := m.renderTablesBox(splitWidth-1, panelHeight)
+			tablesBox := m.renderTablesBox(splitWidth, panelHeight)
 
 			// Right side: schema panel
-			schemaPanel := m.renderSchemaPanel(splitWidth-1, panelHeight)
+			schemaPanel := m.renderSchemaPanel(splitWidth, panelHeight)
 
 			// Join left and right panels horizontally
 			splitView := lipgloss.JoinHorizontal(lipgloss.Top, tablesBox, schemaPanel)
@@ -191,7 +194,7 @@ func (m Model) View() string {
 		// Command line, SQL query, or help text
 		if m.commandMode {
 			cmdLine := m.styles.CommandLineStyle.Render(m.commandBuffer)
-			helpMessage = cmdLine
+			bottomBar = cmdLine
 		} else if m.sqlQueryMode {
 			sqlPrompt := "SQL Query: "
 			// Insert cursor at the correct position (using runes for UTF-8)
@@ -207,14 +210,14 @@ func (m Model) View() string {
 			afterCursor := string(runes[cursorPos:])
 			sqlInput := m.styles.CommandLineStyle.Render(sqlPrompt + beforeCursor + "█" + afterCursor)
 			if m.sqlHistorySuggestionsVisible {
-				helpMessage = sqlInput + "\n" + m.styles.HelpStyle.Render("Enter: select | ↑/↓: navigate | Esc: cancel | Ctrl+N: toggle")
+				bottomBar = sqlInput + "\n" + m.styles.HelpStyle.Render("Enter: select | ↑/↓: navigate | Esc: cancel | Ctrl+N: toggle")
 			} else {
-				helpMessage = sqlInput + "\n" + m.styles.HelpStyle.Render("Enter: execute | Esc: cancel | Ctrl+N: show history")
+				bottomBar = sqlInput + "\n" + m.styles.HelpStyle.Render("Enter: execute | Esc: cancel | Ctrl+N: show history")
 			}
 		} else if m.inlineSearchMode {
-			helpMessage = m.styles.HelpStyle.Render("↑/↓: navigate | Tab: autocomplete | Esc: clear filter | Enter: open table")
+			bottomBar = m.styles.HelpStyle.Render("↑/↓: navigate | Tab: autocomplete | Esc: clear filter | Enter: open table")
 		} else {
-			helpMessage = m.styles.HelpStyle.Render("/: filter | Ctrl+P: search | s: SQL query | d: connections | Tab: switch panel | j/k: scroll | Enter: view | g/G: top/bot | q: quit")
+			bottomBar = m.styles.HelpStyle.Render("/: filter | Ctrl+P: search | s: SQL query | d: connections | Tab: switch panel | j/k: scroll | Enter: view | g/G: top/bot | q: quit")
 		}
 	}
 
@@ -241,7 +244,7 @@ func (m Model) View() string {
 	content := lipgloss.JoinVertical(lipgloss.Left,
 		paddedMainContent,
 		"",
-		helpMessage,
+		bottomBar,
 		"",
 		statusLine,
 	)
@@ -249,8 +252,10 @@ func (m Model) View() string {
 	// Wrap everything in the screen border
 	screenBorder := m.styles.ScreenBorderStyle
 	if m.height > 0 {
-		// Set border height to fill terminal (account for border lines)
-		screenBorder = screenBorder.Height(m.height - 2)
+		// Set border height and width to fill terminal (account for border lines)
+		screenBorder = screenBorder.
+			Height(m.height - 2).
+			Width(m.width - 2)
 	}
 
 	mainView := screenBorder.Render(content)

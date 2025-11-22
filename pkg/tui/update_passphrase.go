@@ -3,7 +3,6 @@ package tui
 import (
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/someshkoli/dessertfrog/pkg/encryption"
-	"github.com/someshkoli/dessertfrog/pkg/helpers"
 )
 
 // handlePassphrasePromptKeys handles key presses in passphrase prompt mode
@@ -14,101 +13,48 @@ func (m Model) handlePassphrasePromptKeys(msg tea.KeyMsg) (Model, tea.Cmd) {
 	case "esc", "ctrl+c":
 		// Cancel passphrase prompt
 		m.passphrasePromptMode = false
-		m.passphraseInput = ""
-		m.passphraseCursor = 0
+		m.passphraseInput = m.makePassphraseInput()
 		m.passphraseKeyName = ""
 		m.passphraseKeyPath = ""
+		m.passphraseForNewKey = false // Reset flag
 		// Continue without encryption
 		m.connectionStatus = ConnectionFailed
 		return m, tea.Quit
 
 	case "enter":
 		// Submit passphrase
-		if m.passphraseInput == "" {
-			// Empty passphrase - treat as cancel
-			m.passphrasePromptMode = true
-			m.passphraseInput = ""
-			m.passphraseCursor = 0
-			m.connectionStatus = ConnectionFailed
-			return m, connectToDatabase(m.driver)
+		passphrase := m.passphraseInput.Value()
+		if passphrase == "" {
+			// Empty passphrase is allowed for new key generation
+			if !m.passphraseForNewKey {
+				// For existing keys, empty passphrase means cancel
+				m.passphrasePromptMode = true
+				m.passphraseInput = m.makePassphraseInput()
+				m.connectionStatus = ConnectionFailed
+				return m, connectToDatabase(m.driver)
+			}
 		}
-
-		// Save passphrase to keychain
-		passphrase := m.passphraseInput
-		keyPath := m.passphraseKeyPath
 
 		// Close prompt immediately
 		m.passphrasePromptMode = false
-		m.passphraseInput = ""
-		m.passphraseCursor = 0
+		m.passphraseInput = m.makePassphraseInput()
 
-		// Save passphrase and continue
+		// Check if we're creating a new key
+		if m.passphraseForNewKey {
+			m.passphraseForNewKey = false // Reset flag
+			// Generate new SSH key with passphrase
+			return m, generateSSHKeyCmd(passphrase)
+		}
+
+		// Otherwise, save passphrase for existing key and continue
+		keyPath := m.passphraseKeyPath
 		return m, savePassphraseAndContinue(keyPath, passphrase)
 
-	case "left":
-		// Move cursor left
-		if m.passphraseCursor > 0 {
-			m.passphraseCursor--
-		}
-		return m, nil
-
-	case "right":
-		// Move cursor right
-		runes := []rune(m.passphraseInput)
-		if m.passphraseCursor < len(runes) {
-			m.passphraseCursor++
-		}
-		return m, nil
-
-	case "home", "ctrl+a":
-		// Move cursor to start
-		m.passphraseCursor = 0
-		return m, nil
-
-	case "end", "ctrl+e":
-		// Move cursor to end
-		runes := []rune(m.passphraseInput)
-		m.passphraseCursor = len(runes)
-		return m, nil
-
-	case "backspace":
-		// Delete character before cursor
-		if m.passphraseCursor > 0 {
-			newInput, newCursor := helpers.DeleteRune(m.passphraseInput, m.passphraseCursor-1)
-			m.passphraseInput = newInput
-			m.passphraseCursor = newCursor
-		}
-		return m, nil
-
-	case "delete", "ctrl+d":
-		// Delete character at cursor
-		runes := []rune(m.passphraseInput)
-		if m.passphraseCursor < len(runes) {
-			newInput, _ := helpers.DeleteRune(m.passphraseInput, m.passphraseCursor)
-			m.passphraseInput = newInput
-		}
-		return m, nil
-
-	case "ctrl+u":
-		// Delete from cursor to start
-		runes := []rune(m.passphraseInput)
-		m.passphraseInput = string(runes[m.passphraseCursor:])
-		m.passphraseCursor = 0
-		return m, nil
-
-	case "ctrl+k":
-		// Delete from cursor to end
-		runes := []rune(m.passphraseInput)
-		m.passphraseInput = string(runes[:m.passphraseCursor])
-		return m, nil
-
 	default:
-		// Add character to input (if it's a printable character)
-		if len(key) == 1 {
-			m.passphraseInput = helpers.InsertRune(m.passphraseInput, rune(key[0]), m.passphraseCursor)
-			m.passphraseCursor++
-		}
-		return m, nil
+		// Pass all other keys to the textinput
+		var cmd tea.Cmd
+		m.passphraseInput, cmd = m.passphraseInput.Update(msg)
+		return m, cmd
 	}
 }
 

@@ -19,11 +19,12 @@ func (m Model) handleConnectionManagerKeys(msg tea.KeyMsg) (Model, tea.Cmd) {
 		if m.connManagerInsertMode {
 			// In insert mode, escape goes to normal mode
 			m.connManagerInsertMode = false
+			m.connManagerFilter.Blur()
 			return m, nil
 		} else {
 			// In normal mode, escape closes the popup
 			m.connManagerMode = false
-			m.connManagerFilter = ""
+			m.connManagerFilter = m.makeConnectionManagerFilter()
 			m.connManagerSelected = 0
 			m.connManagerScroll = 0
 			m.connManagerInsertMode = true // Reset to insert mode for next time
@@ -34,50 +35,62 @@ func (m Model) handleConnectionManagerKeys(msg tea.KeyMsg) (Model, tea.Cmd) {
 	// Handle 'i' key - enter insert mode from normal mode
 	if key == "i" && !m.connManagerInsertMode {
 		m.connManagerInsertMode = true
+		m.connManagerFilter.Focus()
 		return m, nil
 	}
 
 	// Handle 'q' key - always closes in normal mode
 	if key == "q" && !m.connManagerInsertMode {
 		m.connManagerMode = false
-		m.connManagerFilter = ""
+		m.connManagerFilter = m.makeConnectionManagerFilter()
 		m.connManagerSelected = 0
 		m.connManagerScroll = 0
 		m.connManagerInsertMode = true // Reset to insert mode for next time
 		return m, nil
 	}
 
-	// Handle 'C' key - create new connection in normal mode
-	if key == "C" && !m.connManagerInsertMode {
+	// Handle 'c' or 'C' key - create new connection in normal mode
+	if (key == "c" || key == "C") && !m.connManagerInsertMode {
 		// Close connection manager and open new connection input form
 		m.connManagerMode = false
 		m.connInputMode = true
 		m.connInputField = 0 // Start at driver field
-		m.connInputDriver = ""
-		m.connInputHost = "localhost"
-		m.connInputPort = ""
-		m.connInputUsername = ""
-		m.connInputPassword = ""
-		m.connInputDatabase = ""
-		m.connInputSchema = ""
-		m.connInputCursor = 0
+		m.connInputs = m.makeConnectionInputs()
+		m.connectionError = ""
 		return m, nil
 	}
 
-	// Insert mode - all keys go to filter
+	// Insert mode - handle filter input and navigation
 	if m.connManagerInsertMode {
 		switch key {
-		case "backspace":
-			// Remove last character from filter
-			if len(m.connManagerFilter) > 0 {
-				m.connManagerFilter = m.connManagerFilter[:len(m.connManagerFilter)-1]
-				// Update filtered connections
-				if m.connHistory != nil {
-					m.filteredConnections = m.connHistory.Filter(m.connManagerFilter)
+		case "down":
+			// Navigate down in insert mode
+			if len(m.filteredConnections) > 0 {
+				m.connManagerSelected++
+				if m.connManagerSelected >= len(m.filteredConnections) {
+					m.connManagerSelected = len(m.filteredConnections) - 1
 				}
-				// Reset selection
-				m.connManagerSelected = 0
-				m.connManagerScroll = 0
+
+				// Auto-scroll
+				maxVisible := helpers.Min(20, m.height-14)
+				if m.connManagerSelected >= m.connManagerScroll+maxVisible {
+					m.connManagerScroll = m.connManagerSelected - maxVisible + 1
+				}
+			}
+			return m, nil
+
+		case "up":
+			// Navigate up in insert mode
+			if len(m.filteredConnections) > 0 {
+				m.connManagerSelected--
+				if m.connManagerSelected < 0 {
+					m.connManagerSelected = 0
+				}
+
+				// Auto-scroll
+				if m.connManagerSelected < m.connManagerScroll {
+					m.connManagerScroll = m.connManagerSelected
+				}
 			}
 			return m, nil
 
@@ -88,7 +101,7 @@ func (m Model) handleConnectionManagerKeys(msg tea.KeyMsg) (Model, tea.Cmd) {
 
 				// Close connection manager
 				m.connManagerMode = false
-				m.connManagerFilter = ""
+				m.connManagerFilter = m.makeConnectionManagerFilter()
 				m.connManagerInsertMode = true // Reset for next time
 
 				// Switch to the selected connection
@@ -97,18 +110,20 @@ func (m Model) handleConnectionManagerKeys(msg tea.KeyMsg) (Model, tea.Cmd) {
 			return m, nil
 
 		default:
-			// Add character to filter (if it's a printable character)
-			if len(key) == 1 {
-				m.connManagerFilter += key
-				// Update filtered connections
-				if m.connHistory != nil {
-					m.filteredConnections = m.connHistory.Filter(m.connManagerFilter)
-				}
-				// Reset selection
-				m.connManagerSelected = 0
-				m.connManagerScroll = 0
+			// Pass to textinput and update filter
+			var cmd tea.Cmd
+			m.connManagerFilter, cmd = m.connManagerFilter.Update(msg)
+
+			// Update filtered connections based on new value
+			if m.connHistory != nil {
+				m.filteredConnections = m.connHistory.Filter(m.connManagerFilter.Value())
 			}
-			return m, nil
+
+			// Reset selection when filter changes
+			m.connManagerSelected = 0
+			m.connManagerScroll = 0
+
+			return m, cmd
 		}
 	}
 
@@ -167,7 +182,7 @@ func (m Model) handleConnectionManagerKeys(msg tea.KeyMsg) (Model, tea.Cmd) {
 
 			// Close connection manager
 			m.connManagerMode = false
-			m.connManagerFilter = ""
+			m.connManagerFilter = m.makeConnectionManagerFilter()
 			m.connManagerInsertMode = true // Reset for next time
 
 			// Switch to the selected connection

@@ -2,7 +2,6 @@ package tui
 
 import (
 	"github.com/charmbracelet/lipgloss"
-	"github.com/someshkoli/dessertfrog/pkg/helpers"
 )
 
 // renderPassphrasePromptPopup renders the passphrase prompt popup overlay
@@ -11,29 +10,20 @@ func (m Model) renderPassphrasePromptPopup(baseView string) string {
 	popupWidth := 70
 	popupHeight := 10
 
-	// Title
-	title := m.styles.PassphraseTitleStyle.Render("Enter SSH Key Passphrase")
+	// Title - different for new key creation vs unlocking existing key
+	var title string
+	var keyInfo string
+	if m.passphraseForNewKey {
+		title = m.styles.PassphraseTitleStyle.Render("Create New SSH Key")
+		keyInfo = m.styles.PassphraseKeyInfoStyle.Render("Key: " + m.passphraseKeyName + " (leave empty for no passphrase)")
+	} else {
+		title = m.styles.PassphraseTitleStyle.Render("Enter SSH Key Passphrase")
+		keyInfo = m.styles.PassphraseKeyInfoStyle.Render("Key: " + m.passphraseKeyName)
+	}
 
-	// Key info
-	keyInfo := m.styles.PassphraseKeyInfoStyle.Render("Key: " + m.passphraseKeyName)
-
-	// Masked input
-	maskedInput := helpers.MaskString(m.passphraseInput, m.passphraseCursor)
+	// Input line with prompt
 	inputPrompt := "Passphrase: "
-
-	// Insert cursor
-	runes := []rune(maskedInput)
-	cursorPos := m.passphraseCursor
-	if cursorPos < 0 {
-		cursorPos = 0
-	}
-	if cursorPos > len(runes) {
-		cursorPos = len(runes)
-	}
-	beforeCursor := string(runes[:cursorPos])
-	afterCursor := string(runes[cursorPos:])
-
-	inputLine := m.styles.CommandLineStyle.Render(inputPrompt + beforeCursor + "█" + afterCursor)
+	inputLine := m.styles.CommandLineStyle.Render(inputPrompt + m.passphraseInput.View())
 
 	// Help text
 	helpText := m.styles.HelpStyle.Render("Enter: submit | Esc: cancel | Ctrl+C: quit")
