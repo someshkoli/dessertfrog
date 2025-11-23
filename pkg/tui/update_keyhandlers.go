@@ -43,29 +43,8 @@ func (m Model) handleKeyPress(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 
 	// Handle help popup mode
 	if m.helpPopupMode {
-		key := msg.String()
-		maxScroll := m.getHelpMaxScroll()
-
-		switch key {
-		case "?", "esc":
-			m.helpPopupMode = false
-			m.helpPopupScroll = 0 // Reset scroll when closing
-		case "j", "down":
-			m.helpPopupScroll++
-			if m.helpPopupScroll > maxScroll {
-				m.helpPopupScroll = maxScroll
-			}
-		case "k", "up":
-			m.helpPopupScroll--
-			if m.helpPopupScroll < 0 {
-				m.helpPopupScroll = 0
-			}
-		case "g":
-			m.helpPopupScroll = 0
-		case "G":
-			m.helpPopupScroll = maxScroll
-		}
-		return m, nil
+		// handleHelpPopupKeys handles keyboard input in help popup mode
+		return m.handleHelpPopupKeys(msg)
 	}
 
 	// Handle passphrase prompt mode first - highest priority for encryption
@@ -130,6 +109,32 @@ func (m Model) handleKeyPress(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 
 	// Handle normal mode
 	return m.handleNormalModeKeys(msg)
+}
+
+func (m Model) handleHelpPopupKeys(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
+	key := msg.String()
+	maxScroll := m.getHelpMaxScroll()
+
+	switch key {
+	case "?", "esc":
+		m.helpPopupMode = false
+		m.helpPopupScroll = 0 // Reset scroll when closing
+	case "j", "down":
+		m.helpPopupScroll++
+		if m.helpPopupScroll > maxScroll {
+			m.helpPopupScroll = maxScroll
+		}
+	case "k", "up":
+		m.helpPopupScroll--
+		if m.helpPopupScroll < 0 {
+			m.helpPopupScroll = 0
+		}
+	case "g":
+		m.helpPopupScroll = 0
+	case "G":
+		m.helpPopupScroll = maxScroll
+	}
+	return m, nil
 }
 
 // handleSearchModeKeys handles keyboard input in search mode
@@ -374,7 +379,7 @@ func (m Model) handleInlineSearchModeKeys(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 			}
 		}
 
-	case "j", "down":
+	case "down":
 		if !inTableView && m.schemaPanelFocused {
 			// Navigate within schema panel
 			if m.schemaPanelLineCount > 0 && m.schemaPanelSelected < m.schemaPanelLineCount-1 {
@@ -398,7 +403,7 @@ func (m Model) handleInlineSearchModeKeys(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 			}
 		}
 
-	case "k", "up":
+	case "up":
 		if !inTableView && m.schemaPanelFocused {
 			// Navigate within schema panel
 			if m.schemaPanelSelected > 0 {
@@ -422,14 +427,14 @@ func (m Model) handleInlineSearchModeKeys(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 			}
 		}
 
-	case "h", "left":
+	case "left":
 		// h/left: scroll left in schema panel (no-op for now, could be used for horizontal scroll)
 		// Or navigate to table list if in schema panel
 		if !inTableView && m.schemaPanelFocused {
 			// Could implement horizontal scroll here if needed
 		}
 
-	case "l", "right":
+	case "right":
 		// l/right: scroll right in schema panel (no-op for now)
 		// Or could be used for expanding/collapsing items
 		if !inTableView && m.schemaPanelFocused {

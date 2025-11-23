@@ -58,15 +58,15 @@ func (m Model) View() string {
 			if m.cellEditBufferCount > 0 || m.deletedRowsCount > 0 {
 				// Show :w hint when there are pending edits or deletions
 				if m.isCustomQuery {
-					helpText = "i: edit | dd: delete | :w: save all | v: view | y: copy | Y: row | /: filter | d: connections | hjkl: move | s: query | q: quit | o: back"
+					helpText = "i: edit | dd: delete | :w: save all | v: view | y: copy | Y: row | /: filter | c: connections | hjkl: move | s: query | q: quit | o: back"
 				} else {
-					helpText = "i: edit | dd: delete | :w: save all | v: view | y: copy | Y: row | /: filter | d: connections | hjkl: move | n/p: page | s: query | q: quit"
+					helpText = "i: edit | dd: delete | :w: save all | v: view | y: copy | Y: row | /: filter | c: connections | hjkl: move | n/p: page | s: query | q: quit"
 				}
 			} else {
 				if m.isCustomQuery {
-					helpText = "i: edit | dd: delete | v: view | V: record | y: copy | Y: row | /: filter | d: connections | hjkl: move | s: query | q: quit | o: back"
+					helpText = "i: edit | dd: delete | v: view | V: record | y: copy | Y: row | /: filter | c: connections | hjkl: move | s: query | q: quit | o: back"
 				} else {
-					helpText = "i: edit | dd: delete | v: view | V: record | y: copy | Y: row | /: filter | d: connections | hjkl: move | n/p: page | s: query | q: quit"
+					helpText = "i: edit | dd: delete | v: view | V: record | y: copy | Y: row | /: filter | c: connections | hjkl: move | n/p: page | s: query | q: quit"
 				}
 			}
 
@@ -253,7 +253,7 @@ func (m Model) View() string {
 		} else if m.inlineSearchMode {
 			bottomBar = m.styles.HelpStyle.Render("↑/↓: navigate | Tab: autocomplete | Esc: clear filter | Enter: open table")
 		} else {
-			bottomBar = m.styles.HelpStyle.Render("/: filter | Ctrl+P: search | s: SQL query | d: connections | Tab: switch panel | j/k: scroll | Enter: view | g/G: top/bot | q: quit")
+			bottomBar = m.styles.HelpStyle.Render("/: filter | Ctrl+P: search | s: SQL query | c: connections | Tab: switch panel | j/k: scroll | Enter: view | g/G: top/bot | q: quit")
 		}
 	}
 

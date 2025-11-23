@@ -26,6 +26,9 @@ const (
 	CommandQuit    Command = "quit"
 	CommandBack    Command = "back"
 
+	// Export
+	CommandExport Command = "export_data"
+
 	// Text input commands
 	CommandCursorLeft    Command = "cursor_left"
 	CommandCursorRight   Command = "cursor_right"
@@ -149,7 +152,7 @@ func DefaultKeyBindings() KeyBindings {
 			{"y", CommandCopyCellValue},
 			{"Y", CommandCopyRow},
 			{"enter", CommandOpenCellPopup},
-			{"d", CommandOpenConnectionManager},
+			{"c", CommandOpenConnectionManager},
 			{"v", CommandOpenCellPopup},
 			{"r", CommandOpenRecordView},
 			{"V", CommandOpenRecordView},
@@ -157,6 +160,9 @@ func DefaultKeyBindings() KeyBindings {
 			{"ctrl+p", CommandOpenSearch},
 			{"s", CommandOpenSQLQuery},
 			{"esc", CommandBack},
+			{"q", CommandBack},
+
+			// Export
 			{"q", CommandBack},
 		},
 		Search: []KeyBinding{
