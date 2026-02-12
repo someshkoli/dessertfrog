@@ -105,18 +105,18 @@ func (m Model) renderTablesContent(visibleRows, contentWidth int) string {
 
 // renderTablesBox renders the complete tables box with borders
 func (m Model) renderTablesBox(availableWidth, availableHeight int) string {
-	// Calculate tables box dimensions to maximize space
-	// availableWidth already accounts for screen padding, just need border space
-	tablesBoxWidth := availableWidth - 2 // Account for border left/right
+	// Use the width passed in (already calculated by caller)
+	tablesBoxWidth := availableWidth
+	tablesBoxHeight := availableHeight - 6 // Leave room for layout spacing
+
 	if tablesBoxWidth < 40 {
 		tablesBoxWidth = 40
 	}
 
-	tablesBoxHeight := availableHeight - 6 // Leave room for layout spacing
 	if tablesBoxHeight < 5 {
 		tablesBoxHeight = 5
 	}
-
+	//
 	// Calculate visible rows (subtract 2 for header and separator line)
 	visibleRows := tablesBoxHeight - 2
 	if visibleRows < 1 {

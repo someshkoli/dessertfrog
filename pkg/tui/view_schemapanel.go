@@ -2,6 +2,7 @@ package tui
 
 import (
 	"fmt"
+	"regexp"
 	"strings"
 
 	"github.com/someshkoli/dessertfrog/pkg/driver"
@@ -9,8 +10,8 @@ import (
 
 // renderSchemaPanel renders the schema information panel on the right side
 func (m Model) renderSchemaPanel(width, availableHeight int) string {
-	// Calculate panel height same as tables box
-	panelWidth := width + 1
+	// Use the width passed in (already calculated by caller)
+	panelWidth := width
 	if panelWidth < 30 {
 		panelWidth = 30
 	}
@@ -117,8 +118,21 @@ func (m Model) renderSchemaPanel(width, availableHeight int) string {
 
 	// Build visible lines
 	visibleCount := 0
+	// Calculate max line width (accounting for borders and padding)
+	maxLineWidth := panelWidth - 4 // Account for borders and padding
+	if maxLineWidth < 10 {
+		maxLineWidth = 10
+	}
+
 	for i := startIdx; i < endIdx && visibleCount < visibleLines; i++ {
 		line := allLines[i]
+
+		// Truncate line if it's too long (measure without ANSI codes)
+		lineRunes := []rune(stripANSI(line))
+		if len(lineRunes) > maxLineWidth {
+			// Truncate and add ellipsis
+			line = string(lineRunes[:maxLineWidth-3]) + "..."
+		}
 
 		// Highlight selected line when schema panel is focused
 		if m.schemaPanelFocused && i == m.schemaPanelSelected {
@@ -266,4 +280,10 @@ func (m Model) updateSchemaPanelLineCount() Model {
 
 	m.schemaPanelLineCount = lineCount
 	return m
+}
+
+// stripANSI removes ANSI escape codes from a string to get the actual visible length
+func stripANSI(s string) string {
+	ansiRegex := regexp.MustCompile(`\x1b\[[0-9;]*m`)
+	return ansiRegex.ReplaceAllString(s, "")
 }

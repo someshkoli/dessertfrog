@@ -1,6 +1,7 @@
 package tui
 
 import (
+	"fmt"
 	"strings"
 
 	"github.com/charmbracelet/lipgloss"
@@ -9,12 +10,12 @@ import (
 // View renders the UI
 func (m Model) View() string {
 	// Calculate available dimensions
-	availableWidth := m.width - 6   // Account for screen border padding (1+1) and border (1+1) and margin
+	availableWidth := m.width - 1   // Account for screen border padding (1+1) and border (1+1)
 	availableHeight := m.height - 6 // Account for screen border, title, status line
 
 	// Build the main content (without help and status line)
 	var mainContent string
-	var helpMessage string
+	var bottomBar string
 
 	// Check if in table view mode
 	if m.tableViewMode {
@@ -28,10 +29,10 @@ func (m Model) View() string {
 		// Inline search bar for content filtering
 		if m.inlineSearchMode {
 			searchBar := m.renderInlineSearchBar()
-			helpMessage = searchBar + "\n" + m.styles.HelpStyle.Render("Enter: apply filter | Esc: cancel")
+			bottomBar = searchBar + "\n" + m.styles.HelpStyle.Render("Enter: apply filter | Esc: cancel")
 		} else if m.commandMode {
 			cmdLine := m.styles.CommandLineStyle.Render(m.commandBuffer + "█")
-			helpMessage = cmdLine + "\n" + m.styles.HelpStyle.Render("Enter: execute | Esc: cancel")
+			bottomBar = cmdLine + "\n" + m.styles.HelpStyle.Render("Enter: execute | Esc: cancel")
 		} else if m.sqlQueryMode {
 			sqlPrompt := "SQL Query: "
 			// Insert cursor at the correct position (using runes for UTF-8)
@@ -47,28 +48,64 @@ func (m Model) View() string {
 			afterCursor := string(runes[cursorPos:])
 			sqlInput := m.styles.CommandLineStyle.Render(sqlPrompt + beforeCursor + "█" + afterCursor)
 			if m.sqlHistorySuggestionsVisible {
-				helpMessage = sqlInput + "\n" + m.styles.HelpStyle.Render("Enter: select | ↑/↓: navigate | Esc: close suggestions | Ctrl+N: toggle")
+				bottomBar = sqlInput + "\n" + m.styles.HelpStyle.Render("Enter: select | ↑/↓: navigate | Esc: close suggestions | Ctrl+N: toggle")
 			} else {
-				helpMessage = sqlInput + "\n" + m.styles.HelpStyle.Render("Enter: execute | Esc: cancel | Ctrl+N: show history")
+				bottomBar = sqlInput + "\n" + m.styles.HelpStyle.Render("Enter: execute | Esc: cancel | Ctrl+N: show history")
 			}
 		} else {
 			// Show help text with 's' to view/edit query
 			var helpText string
-			if m.cellEditBufferCount > 0 {
-				// Show :w hint when there are pending edits
+			if m.cellEditBufferCount > 0 || m.deletedRowsCount > 0 {
+				// Show :w hint when there are pending edits or deletions
 				if m.isCustomQuery {
-					helpText = "i: edit | :w: save all | v: view | y: copy | Y: row | /: filter | d: connections | hjkl: move | s: query | q: quit | o: back"
+					helpText = "i: edit | dd: delete | :w: save all | v: view | y: copy | Y: row | /: filter | c: connections | hjkl: move | s: query | q: quit | o: back"
 				} else {
-					helpText = "i: edit | :w: save all | v: view | y: copy | Y: row | /: filter | d: connections | hjkl: move | n/p: page | s: query | q: quit"
+					helpText = "i: edit | dd: delete | :w: save all | v: view | y: copy | Y: row | /: filter | c: connections | hjkl: move | n/p: page | s: query | q: quit"
 				}
 			} else {
 				if m.isCustomQuery {
-					helpText = "i: edit | v: view | V: record | y: copy | Y: row | /: filter | d: connections | hjkl: move | s: query | q: quit | o: back"
+					helpText = "i: edit | dd: delete | v: view | V: record | y: copy | Y: row | /: filter | c: connections | hjkl: move | s: query | q: quit | o: back"
 				} else {
-					helpText = "i: edit | v: view | V: record | y: copy | Y: row | /: filter | d: connections | hjkl: move | n/p: page | s: query | q: quit"
+					helpText = "i: edit | dd: delete | v: view | V: record | y: copy | Y: row | /: filter | c: connections | hjkl: move | n/p: page | s: query | q: quit"
 				}
 			}
-			helpMessage = m.styles.HelpStyle.Render(helpText)
+
+			// Add mode indicator
+			var modeIndicator string
+			if m.visualMode {
+				modeIndicator = " VISUAL "
+				modeIndicator = m.styles.TableVisualModeStyle.Inline(true).Render(modeIndicator)
+			} else {
+				modeIndicator = " NORMAL "
+				modeIndicator = m.styles.TableNormalModeStyle.Inline(true).Render(modeIndicator)
+			}
+
+			// Calculate available width
+			contentWidth := m.width - 4
+			if contentWidth < 40 {
+				contentWidth = 40
+			}
+
+			helpTextRendered := m.styles.HelpStyle.Inline(true).Render(helpText)
+			helpWidth := lipgloss.Width(helpTextRendered)
+			modeWidth := lipgloss.Width(modeIndicator)
+
+			// Check if help text + mode indicator fits
+			totalWidth := helpWidth + 2 + modeWidth // 2 for spacing
+			if totalWidth > contentWidth {
+				// Not enough space - show shortened help
+				helpTextRendered = m.styles.HelpStyle.Inline(true).Render("?: help")
+				helpWidth = lipgloss.Width(helpTextRendered)
+			}
+
+			// Create spacing to push mode indicator to the right
+			spacingWidth := contentWidth - helpWidth - modeWidth
+			if spacingWidth < 1 {
+				spacingWidth = 1
+			}
+			spacing := lipgloss.NewStyle().Width(spacingWidth).Inline(true).Render("")
+
+			bottomBar = helpTextRendered + spacing + modeIndicator
 		}
 	} else {
 		// Normal table list view with split view (tables on left, schema on right)
@@ -76,13 +113,89 @@ func (m Model) View() string {
 		title := m.styles.TitleStyle.Render("dessertfrog - Database Browser")
 		mainContent += title + "\n"
 
-		// If connection failed, show error prominently instead of tables
-		if m.connectionStatus == ConnectionFailed {
+		// If disconnected and not in any other mode, show connection manager as main view
+		if m.connectionStatus == Disconnected && !m.sqlQueryMode {
+			// Render connection manager inline with filter support
+			var filterLine string
+			if m.connManagerInsertMode {
+				filterPrompt := "Filter: "
+				filterLine = m.styles.ConnManagerFilterStyle.Render(filterPrompt + m.connManagerFilter.View())
+			}
+
+			connections := m.filteredConnections
+			if len(connections) == 0 && m.connHistory != nil {
+				filterValue := m.connManagerFilter.Value()
+				if filterValue == "" {
+					connections = m.connHistory.GetAll()
+				} else {
+					connections = m.connHistory.Filter(filterValue)
+				}
+			}
+
+			if m.connManagerInsertMode && m.connManagerFilter.Value() != "" {
+				mainContent += filterLine + "\n\n"
+			}
+
+			if len(connections) == 0 {
+				if m.connManagerFilter.Value() != "" {
+					mainContent += m.styles.ErrorStyle.Render("No connections match filter") + "\n"
+				} else {
+					mainContent += m.styles.ErrorStyle.Render("No saved connections") + "\n"
+				}
+				mainContent += "\n"
+				if !m.connManagerInsertMode {
+					mainContent += "Press 'C' to create a new connection\n"
+				}
+			} else {
+				mainContent += "Saved Connections:\n\n"
+				for i, conn := range connections {
+					line := fmt.Sprintf("  %s", conn.Signature())
+					if i == m.connManagerSelected {
+						line = m.styles.SelectedRowStyle.Render(line)
+					} else {
+						line = m.styles.TableRowStyle.Render(line)
+					}
+					mainContent += line + "\n"
+				}
+			}
+
+			// Help text with mode indicator
+			var helpText string
+			var modeIndicator string
+			if m.connManagerInsertMode {
+				helpText = "type to filter  enter: connect  esc: normal mode"
+				modeIndicator = " INSERT "
+			} else {
+				helpText = "hjkl: navigate  g/G: top/bottom  C: new connection  i: insert mode  enter: connect  q: quit"
+				modeIndicator = " NORMAL "
+			}
+
+			var modeStyle lipgloss.Style
+			if m.connManagerInsertMode {
+				modeStyle = m.styles.ConnManagerInsertModeStyle
+			} else {
+				modeStyle = m.styles.ConnManagerNormalModeStyle
+			}
+
+			bottomBar = lipgloss.JoinHorizontal(
+				lipgloss.Left,
+				m.styles.HelpStyle.Render(helpText),
+				"  ",
+				modeStyle.Render(modeIndicator),
+			)
+		} else if m.connectionStatus == ConnectionFailed {
+			// If connection failed, show error prominently instead of tables
 			errorBox := m.renderConnectionError()
 			mainContent += errorBox
 		} else if !m.sqlQueryMode {
 			// Row 2: Split view - tables list on left, schema panel on right
-			splitWidth := availableWidth / 2
+			// Each panel has border (2 chars) + padding (2 chars) = 4 chars overhead
+			// Total overhead for 2 panels = 8 chars
+			contentWidth := availableWidth - 8
+			if contentWidth < 20 {
+				contentWidth = 20
+			}
+			splitWidth := contentWidth / 2
 
 			// Calculate panel height - pass directly, let functions handle internally
 			panelHeight := availableHeight
@@ -91,10 +204,10 @@ func (m Model) View() string {
 			}
 
 			// Left side: tables list
-			tablesBox := m.renderTablesBox(splitWidth-1, panelHeight)
+			tablesBox := m.renderTablesBox(splitWidth, panelHeight)
 
 			// Right side: schema panel
-			schemaPanel := m.renderSchemaPanel(splitWidth-1, panelHeight)
+			schemaPanel := m.renderSchemaPanel(splitWidth, panelHeight)
 
 			// Join left and right panels horizontally
 			splitView := lipgloss.JoinHorizontal(lipgloss.Top, tablesBox, schemaPanel)
@@ -117,7 +230,7 @@ func (m Model) View() string {
 		// Command line, SQL query, or help text
 		if m.commandMode {
 			cmdLine := m.styles.CommandLineStyle.Render(m.commandBuffer)
-			helpMessage = cmdLine
+			bottomBar = cmdLine
 		} else if m.sqlQueryMode {
 			sqlPrompt := "SQL Query: "
 			// Insert cursor at the correct position (using runes for UTF-8)
@@ -133,14 +246,14 @@ func (m Model) View() string {
 			afterCursor := string(runes[cursorPos:])
 			sqlInput := m.styles.CommandLineStyle.Render(sqlPrompt + beforeCursor + "█" + afterCursor)
 			if m.sqlHistorySuggestionsVisible {
-				helpMessage = sqlInput + "\n" + m.styles.HelpStyle.Render("Enter: select | ↑/↓: navigate | Esc: cancel | Ctrl+N: toggle")
+				bottomBar = sqlInput + "\n" + m.styles.HelpStyle.Render("Enter: select | ↑/↓: navigate | Esc: cancel | Ctrl+N: toggle")
 			} else {
-				helpMessage = sqlInput + "\n" + m.styles.HelpStyle.Render("Enter: execute | Esc: cancel | Ctrl+N: show history")
+				bottomBar = sqlInput + "\n" + m.styles.HelpStyle.Render("Enter: execute | Esc: cancel | Ctrl+N: show history")
 			}
 		} else if m.inlineSearchMode {
-			helpMessage = m.styles.HelpStyle.Render("↑/↓: navigate | Tab: autocomplete | Esc: clear filter | Enter: open table")
+			bottomBar = m.styles.HelpStyle.Render("↑/↓: navigate | Tab: autocomplete | Esc: clear filter | Enter: open table")
 		} else {
-			helpMessage = m.styles.HelpStyle.Render("/: filter | Ctrl+P: search | s: SQL query | d: connections | Tab: switch panel | j/k: scroll | Enter: view | g/G: top/bot | q: quit")
+			bottomBar = m.styles.HelpStyle.Render("/: filter | Ctrl+P: search | s: SQL query | c: connections | Tab: switch panel | j/k: scroll | Enter: view | g/G: top/bot | q: quit")
 		}
 	}
 
@@ -167,7 +280,7 @@ func (m Model) View() string {
 	content := lipgloss.JoinVertical(lipgloss.Left,
 		paddedMainContent,
 		"",
-		helpMessage,
+		bottomBar,
 		"",
 		statusLine,
 	)
@@ -175,20 +288,42 @@ func (m Model) View() string {
 	// Wrap everything in the screen border
 	screenBorder := m.styles.ScreenBorderStyle
 	if m.height > 0 {
-		// Set border height to fill terminal (account for border lines)
-		screenBorder = screenBorder.Height(m.height - 2)
+		// Set border height and width to fill terminal (account for border lines)
+		screenBorder = screenBorder.
+			Height(m.height - 2).
+			Width(m.width - 2)
 	}
 
 	mainView := screenBorder.Render(content)
+
+	// Render help popup overlay if active
+	if m.helpPopupMode {
+		return m.renderHelpPopup(mainView)
+	}
 
 	// Render search popup overlay if active
 	if m.searchMode {
 		return m.renderSearchPopup(mainView)
 	}
 
+	// Render passphrase prompt popup overlay if active (highest priority for encryption)
+	if m.passphrasePromptMode {
+		return m.renderPassphrasePromptPopup(mainView)
+	}
+
+	// Render key selector popup overlay if active (highest priority - must be set up first)
+	if m.keySelectorMode {
+		return m.renderKeySelectorPopup(mainView)
+	}
+
 	// Render connection manager popup overlay if active
 	if m.connManagerMode {
 		return m.renderConnectionManagerPopup(mainView)
+	}
+
+	// Render connection input popup overlay if active
+	if m.connInputMode {
+		return m.renderConnectionInputPopup(mainView)
 	}
 
 	// Render record view popup overlay if active

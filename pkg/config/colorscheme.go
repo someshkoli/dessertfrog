@@ -9,9 +9,11 @@ type ColorSchemeConfig struct {
 	Foreground string `yaml:"foreground,omitempty"` // Foreground text (default: #FFFFFF)
 
 	// Text colors
-	HelpText   string `yaml:"help_text,omitempty"`   // Help text color (default: #626262)
-	GhostText  string `yaml:"ghost_text,omitempty"`  // Autocomplete ghost text (default: #666666)
-	StatusText string `yaml:"status_text,omitempty"` // Status line text (default: #AAAAAA)
+	Text            string `yaml:"text,omitempty"`             // Regular text color (default: 255)
+	HelpText        string `yaml:"help_text,omitempty"`        // Help text color (default: #626262)
+	GhostText       string `yaml:"ghost_text,omitempty"`       // Autocomplete ghost text (default: #666666)
+	StatusText      string `yaml:"status_text,omitempty"`      // Status line text (default: #AAAAAA)
+	InputBackground string `yaml:"input_background,omitempty"` // Text input background (default: 235)
 
 	// Border colors
 	BorderActive   string `yaml:"border_active,omitempty"`   // Active border (default: #7D56F4)
@@ -85,9 +87,11 @@ func DefaultColorScheme() ColorSchemeConfig {
 		Secondary:          "#808080",
 		Background:         "#1a1a1a",
 		Foreground:         "#FFFFFF",
+		Text:               "255",
 		HelpText:           "#626262",
 		GhostText:          "#666666",
 		StatusText:         "#AAAAAA",
+		InputBackground:    "235",
 		BorderActive:       "#7D56F4",
 		BorderInactive:     "#4A4A4A",
 		BorderNormal:       "#808080",
@@ -149,6 +153,9 @@ func (c *ColorSchemeConfig) MergeWithDefaults() ColorSchemeConfig {
 	if result.Foreground == "" {
 		result.Foreground = defaults.Foreground
 	}
+	if result.Text == "" {
+		result.Text = defaults.Text
+	}
 	if result.HelpText == "" {
 		result.HelpText = defaults.HelpText
 	}
@@ -157,6 +164,9 @@ func (c *ColorSchemeConfig) MergeWithDefaults() ColorSchemeConfig {
 	}
 	if result.StatusText == "" {
 		result.StatusText = defaults.StatusText
+	}
+	if result.InputBackground == "" {
+		result.InputBackground = defaults.InputBackground
 	}
 	if result.BorderActive == "" {
 		result.BorderActive = defaults.BorderActive

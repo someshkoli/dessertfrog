@@ -100,6 +100,13 @@ type Driver interface {
 	// columnName: the name of the column to update
 	// newValue: the new value to set (as string)
 	UpdateCell(ctx context.Context, tableSchema *TableSchema, columns []string, oldRow []string, columnName, newValue string) error
+
+	// DeleteRows deletes multiple rows from a table in a batch operation
+	// tableSchema: the table schema (includes primary key info, can be nil)
+	// columns: all column names for the table
+	// rows: slice of row data to delete (each row used to identify the row in WHERE clause)
+	// Returns the number of rows deleted and any error
+	DeleteRows(ctx context.Context, tableSchema *TableSchema, columns []string, rows [][]string) (int64, error)
 }
 
 // ConnectionInfo holds metadata about a database connection

@@ -37,6 +37,11 @@ Currently supported databases:
 
 Connect to your database and browse tables, schemas, and data with an intuitive terminal interface.`,
 	PreRunE: func(cmd *cobra.Command, args []string) error {
+		// If no driver is specified, allow starting without database connection
+		if dbDriver == "" {
+			return nil
+		}
+
 		// Set driver-specific defaults if not explicitly provided
 		if !cmd.Flags().Changed("host") {
 			dbHost = "localhost"
@@ -140,15 +145,12 @@ func init() {
 	// Configuration file flag
 	rootCmd.Flags().StringVarP(&configFile, "config-file", "c", "", "Path to config file (default: ~/.config/dessertfrog/config.yaml)")
 
-	// Database connection flags
-	rootCmd.Flags().StringVarP(&dbDriver, "driver", "d", "postgres", "Database driver (mariadb, postgres, clickhouse)")
+	// Database connection flags (all optional now)
+	rootCmd.Flags().StringVarP(&dbDriver, "driver", "d", "", "Database driver (mariadb, postgres, clickhouse)")
 	rootCmd.Flags().StringVarP(&dbHost, "host", "", "", "Database host (default: localhost)")
 	rootCmd.Flags().IntVarP(&dbPort, "port", "p", 0, "Database port (default: 5432 for postgres, 3306 for mariadb, 9000 for clickhouse)")
 	rootCmd.Flags().StringVarP(&dbUsername, "username", "u", "", "Database username (default: postgres for postgres, root for mariadb, default for clickhouse)")
 	rootCmd.Flags().StringVarP(&dbPassword, "password", "P", "", "Database password")
 	rootCmd.Flags().StringVarP(&dbName, "database", "n", "", "Database name (default: postgres for postgres, mysql for mariadb, default for clickhouse)")
 	rootCmd.Flags().StringVarP(&dbSchema, "schema", "s", "", "Database schema (default: public for postgres)")
-
-	// Mark driver as required
-	rootCmd.MarkFlagRequired("driver")
 }

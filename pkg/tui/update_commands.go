@@ -7,6 +7,7 @@ import (
 
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/someshkoli/dessertfrog/pkg/driver"
+	"github.com/someshkoli/dessertfrog/pkg/encryption"
 )
 
 // connectToDatabase attempts to connect to the database
@@ -151,9 +152,81 @@ func updateCellValue(drv driver.Driver, tableSchema *driver.TableSchema, columns
 	}
 }
 
+// deleteRows deletes multiple rows from the database
+func deleteRows(drv driver.Driver, tableSchema *driver.TableSchema, columns []string, rows [][]string) tea.Cmd {
+	return func() tea.Msg {
+		ctx := context.Background()
+
+		// Execute batch DELETE
+		rowsAffected, err := drv.DeleteRows(ctx, tableSchema, columns, rows)
+		if err != nil {
+			return rowsDeleteFailedMsg{err: err}
+		}
+
+		// Return success with rows affected count
+		return rowsDeleteSuccessMsg{
+			rowsAffected: rowsAffected,
+		}
+	}
+}
+
 // clearClipboardMessage returns a command that clears the clipboard message after a delay
 func clearClipboardMessage() tea.Cmd {
 	return tea.Tick(time.Second*2, func(t time.Time) tea.Msg {
 		return clearClipboardMsgType{}
 	})
+}
+
+// checkEncryptionSetup checks if encryption is configured and sets it up if needed
+// Returns nil if no database connection is needed (will go to connection manager view)
+func checkEncryptionSetup() tea.Cmd {
+	return func() tea.Msg {
+		// Try to load existing encryption config
+		config, err := encryption.LoadConfig()
+		if err != nil || config == nil {
+			// No encryption config found - need to set up
+			return encryptionSetupRequiredMsg{}
+		}
+
+		// Check if encryption is disabled
+		if config.DisableEncryption {
+			// User chose to disable encryption - continue without it
+			return encryptionDisabledMsg{}
+		}
+
+		// Config exists, try to load the key
+		var key *encryption.Key
+		switch config.KeyType {
+		case encryption.KeyTypeSSH:
+			keys, err := encryption.DiscoverKeys()
+			if err == nil {
+				// Find the key that matches the config
+				for _, k := range keys {
+					if k.Path == config.KeyPath && k.Type == encryption.KeyTypeSSH {
+						key = &k
+						break
+					}
+				}
+			}
+		case encryption.KeyTypeGPG:
+			keys, err := encryption.DiscoverKeys()
+			if err == nil {
+				// Find the key that matches the config
+				for _, k := range keys {
+					if k.Path == config.KeyPath && k.Type == encryption.KeyTypeGPG {
+						key = &k
+						break
+					}
+				}
+			}
+		}
+
+		if key == nil {
+			// Key not found, need to set up again
+			return encryptionSetupRequiredMsg{}
+		}
+
+		// Encryption is set up and key is available
+		return encryptionSetupCompleteMsg{key: key}
+	}
 }
