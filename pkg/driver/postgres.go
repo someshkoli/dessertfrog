@@ -664,6 +664,9 @@ func (p *PostgresDriver) GetTableData(ctx context.Context, schemaName, tableName
 					} else {
 						row[i] = string(jsonBytes)
 					}
+				case time.Time:
+					// Format timestamps in PostgreSQL-compatible format (RFC3339)
+					row[i] = v.Format(time.RFC3339)
 				default:
 					row[i] = fmt.Sprintf("%v", val)
 				}
@@ -731,6 +734,9 @@ func (p *PostgresDriver) ExecuteQuery(ctx context.Context, query string) ([]stri
 					} else {
 						row[i] = string(jsonBytes)
 					}
+				case time.Time:
+					// Format timestamps in PostgreSQL-compatible format (RFC3339)
+					row[i] = v.Format(time.RFC3339)
 				default:
 					row[i] = fmt.Sprintf("%v", val)
 				}
@@ -839,4 +845,110 @@ func (p *PostgresDriver) UpdateCell(ctx context.Context, tableSchema *TableSchem
 	}
 
 	return nil
+}
+
+// DeleteRows deletes multiple rows from a table in a batch operation
+func (p *PostgresDriver) DeleteRows(ctx context.Context, tableSchema *TableSchema, columns []string, rows [][]string) (int64, error) {
+	if p.pool == nil {
+		return 0, fmt.Errorf("connection is not established")
+	}
+
+	if tableSchema == nil {
+		return 0, fmt.Errorf("table schema is required for delete")
+	}
+
+	if len(rows) == 0 {
+		return 0, nil // Nothing to delete
+	}
+
+	// Determine which columns to use in WHERE clause
+	// Priority: 1) Primary keys (if available), 2) All columns
+	var whereColumns []string
+
+	// Check if we have table schema with primary key information
+	if len(tableSchema.Columns) > 0 {
+		// Find primary key columns
+		for _, col := range tableSchema.Columns {
+			if col.IsPrimaryKey {
+				whereColumns = append(whereColumns, col.Name)
+			}
+		}
+	}
+
+	// If no primary keys found, use all columns to identify the row
+	if len(whereColumns) == 0 {
+		whereColumns = columns
+	}
+
+	// Build DELETE query with row tuple IN clause for efficiency
+	// Format: WHERE (col1, col2, ...) IN ((val1, val2, ...), (val3, val4, ...), ...)
+	var args []interface{}
+	argIndex := 1
+
+	// Build column list for IN clause
+	var columnIdentifiers []string
+	for _, col := range whereColumns {
+		columnIdentifiers = append(columnIdentifiers, pgx.Identifier{col}.Sanitize())
+	}
+	columnList := strings.Join(columnIdentifiers, ", ")
+
+	// Build value tuples for each row
+	var valueTuples []string
+	for _, row := range rows {
+		var rowValues []string
+
+		// Build values for this row
+		for _, col := range whereColumns {
+			// Find the index of this column in the columns array
+			colIdx := -1
+			for i, c := range columns {
+				if c == col {
+					colIdx = i
+					break
+				}
+			}
+
+			if colIdx >= 0 && colIdx < len(row) {
+				if row[colIdx] == "NULL" {
+					rowValues = append(rowValues, "NULL")
+				} else {
+					rowValues = append(rowValues, fmt.Sprintf("$%d", argIndex))
+					args = append(args, row[colIdx])
+					argIndex++
+				}
+			}
+		}
+
+		if len(rowValues) == len(whereColumns) {
+			valueTuples = append(valueTuples, "("+strings.Join(rowValues, ", ")+")")
+		}
+	}
+
+	if len(valueTuples) == 0 {
+		return 0, fmt.Errorf("no valid rows to delete")
+	}
+
+	// Build full DELETE query using IN clause
+	whereClause := fmt.Sprintf("(%s) IN (%s)", columnList, strings.Join(valueTuples, ", "))
+
+	query := fmt.Sprintf(
+		"DELETE FROM %s.%s WHERE %s",
+		pgx.Identifier{tableSchema.SchemaName}.Sanitize(),
+		pgx.Identifier{tableSchema.TableName}.Sanitize(),
+		whereClause,
+	)
+
+	// Execute the DELETE
+	result, err := p.pool.Exec(ctx, query, args...)
+	if err != nil {
+		// Format query for better readability in error
+		formattedQuery := fmt.Sprintf("DELETE FROM %s.%s\nWHERE %s",
+			pgx.Identifier{tableSchema.SchemaName}.Sanitize(),
+			pgx.Identifier{tableSchema.TableName}.Sanitize(),
+			whereClause,
+		)
+		return 0, fmt.Errorf("failed to delete rows: %w\nQuery:\n%s\nArgs: %v", err, formattedQuery, args)
+	}
+
+	return result.RowsAffected(), nil
 }

@@ -41,9 +41,35 @@ func (m Model) handleKeyPress(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		return m.handleDebugPanelKeys(msg)
 	}
 
-	// Handle search mode first - highest priority to allow typing
+	// Handle help popup mode
+	if m.helpPopupMode {
+		// handleHelpPopupKeys handles keyboard input in help popup mode
+		return m.handleHelpPopupKeys(msg)
+	}
+
+	// Handle passphrase prompt mode first - highest priority for encryption
+	if m.passphrasePromptMode {
+		return m.handlePassphrasePromptKeys(msg)
+	}
+
+	// Handle key selector mode second - for first-run setup
+	if m.keySelectorMode {
+		return m.handleKeySelectorKeys(msg)
+	}
+
+	// Handle search mode - high priority to allow typing
 	if m.searchMode {
 		return m.handleSearchModeKeys(msg)
+	}
+
+	// Handle connection manager mode
+	if m.connManagerMode {
+		return m.handleConnectionManagerKeys(msg)
+	}
+
+	// Handle connection input mode
+	if m.connInputMode {
+		return m.handleConnectionInputKeys(msg)
 	}
 
 	// Handle inline search mode
@@ -83,6 +109,32 @@ func (m Model) handleKeyPress(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 
 	// Handle normal mode
 	return m.handleNormalModeKeys(msg)
+}
+
+func (m Model) handleHelpPopupKeys(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
+	key := msg.String()
+	maxScroll := m.getHelpMaxScroll()
+
+	switch key {
+	case "?", "esc":
+		m.helpPopupMode = false
+		m.helpPopupScroll = 0 // Reset scroll when closing
+	case "j", "down":
+		m.helpPopupScroll++
+		if m.helpPopupScroll > maxScroll {
+			m.helpPopupScroll = maxScroll
+		}
+	case "k", "up":
+		m.helpPopupScroll--
+		if m.helpPopupScroll < 0 {
+			m.helpPopupScroll = 0
+		}
+	case "g":
+		m.helpPopupScroll = 0
+	case "G":
+		m.helpPopupScroll = maxScroll
+	}
+	return m, nil
 }
 
 // handleSearchModeKeys handles keyboard input in search mode
@@ -190,10 +242,22 @@ func (m Model) handleCommandModeKeys(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		if m.commandBuffer == ":q" || m.commandBuffer == ":quit" {
 			return m, tea.Quit
 		} else if m.commandBuffer == ":w" || m.commandBuffer == ":w " {
-			// Batch update all cells in buffer
+			// Batch update all cells in buffer AND/OR batch delete rows
 			m.commandMode = false
 			m.commandBuffer = ""
-			return m.batchUpdateCells()
+
+			// Check if we have both updates and deletes
+			hasUpdates := m.cellEditBufferCount > 0
+			hasDeletes := m.deletedRowsCount > 0
+
+			if hasDeletes {
+				return m.batchDeleteRows()
+			} else if hasUpdates {
+				return m.batchUpdateCells()
+			}
+
+			// Nothing to do
+			return m, nil
 		}
 		// Reset command mode
 		m.commandMode = false
@@ -315,7 +379,7 @@ func (m Model) handleInlineSearchModeKeys(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 			}
 		}
 
-	case "j", "down":
+	case "down":
 		if !inTableView && m.schemaPanelFocused {
 			// Navigate within schema panel
 			if m.schemaPanelLineCount > 0 && m.schemaPanelSelected < m.schemaPanelLineCount-1 {
@@ -339,7 +403,7 @@ func (m Model) handleInlineSearchModeKeys(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 			}
 		}
 
-	case "k", "up":
+	case "up":
 		if !inTableView && m.schemaPanelFocused {
 			// Navigate within schema panel
 			if m.schemaPanelSelected > 0 {
@@ -363,14 +427,14 @@ func (m Model) handleInlineSearchModeKeys(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 			}
 		}
 
-	case "h", "left":
+	case "left":
 		// h/left: scroll left in schema panel (no-op for now, could be used for horizontal scroll)
 		// Or navigate to table list if in schema panel
 		if !inTableView && m.schemaPanelFocused {
 			// Could implement horizontal scroll here if needed
 		}
 
-	case "l", "right":
+	case "right":
 		// l/right: scroll right in schema panel (no-op for now)
 		// Or could be used for expanding/collapsing items
 		if !inTableView && m.schemaPanelFocused {
@@ -412,6 +476,26 @@ func (m Model) handleInlineSearchModeKeys(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 // handleNormalModeKeys handles keyboard input in normal mode
 func (m Model) handleNormalModeKeys(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	key := msg.String()
+
+	// If disconnected, treat this as connection manager in main view (not popup)
+	// Use the same insert/normal mode behavior as the connection manager popup
+	if m.connectionStatus == Disconnected {
+		// Temporarily set connManagerMode to true and delegate to connection manager handler
+		m.connManagerMode = true
+		m2, cmd := m.handleConnectionManagerKeys(msg)
+		// If connection manager was closed by the handler, keep it open since we're in main view
+		if !m2.connManagerMode {
+			// User pressed 'q' or 'esc' in normal mode - interpret as quit
+			if key == "q" || (key == "esc" && !m.connManagerInsertMode) {
+				return m2, tea.Quit
+			}
+			// Otherwise, keep the connection manager conceptually "open" (it's the main view)
+			m2.connManagerMode = false // Keep it as main view, not popup
+			return m2, cmd
+		}
+		m2.connManagerMode = false // Reset since we're not in popup mode
+		return m2, cmd
+	}
 
 	// Handle Tab to switch between panels
 	if key == "tab" {
@@ -462,6 +546,17 @@ func (m Model) handleNormalModeKeys(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 			m.sqlQueryCursor = 0
 			// Show suggestions on open (shows recent queries)
 			m = m.updateSQLHistorySuggestions()
+
+		case CommandOpenConnectionManager:
+			// Open connection manager popup
+			m.connManagerMode = true
+			m.connManagerFilter = m.makeConnectionManagerFilter()
+			m.connManagerSelected = 0
+			m.connManagerScroll = 0
+			m.connManagerInsertMode = true // Start in insert mode
+			if m.connHistory != nil {
+				m.filteredConnections = m.connHistory.GetAll()
+			}
 
 		case CommandQuit:
 			return m, tea.Quit
@@ -608,11 +703,45 @@ func (m Model) handleNormalModeKeys(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 func (m Model) handleTableViewModeKeys(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	key := msg.String()
 
+	// Handle ? key for help popup
+	if key == "?" {
+		m.helpPopupMode = !m.helpPopupMode
+		return m, nil
+	}
+
 	// Handle : key for command mode (to allow :w for batch updates)
 	if key == ":" {
 		m.commandMode = true
 		m.commandBuffer = ":"
 		return m, nil
+	}
+
+	// Handle dd key sequence (vim-style row deletion)
+	if key == "d" {
+		if m.lastKeyPress == 'd' {
+			// Second 'd' pressed - mark current row for deletion
+			if len(m.tableData) > 0 && m.selectedDataRow < len(m.tableData) {
+				if m.deletedRows[m.selectedDataRow] {
+					// Already marked - unmark it
+					delete(m.deletedRows, m.selectedDataRow)
+					m.deletedRowsCount--
+				} else {
+					// Mark for deletion
+					m.deletedRows[m.selectedDataRow] = true
+					m.deletedRowsCount++
+				}
+			}
+			m.lastKeyPress = 0 // Reset
+			return m, nil
+		}
+		// First 'd' pressed - store it
+		m.lastKeyPress = 'd'
+		return m, nil
+	}
+
+	// Reset lastKeyPress if any other key is pressed
+	if m.lastKeyPress == 'd' {
+		m.lastKeyPress = 0
 	}
 
 	// Check key bindings for commands
@@ -676,6 +805,17 @@ func (m Model) handleTableViewModeKeys(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		case CommandFilterContent:
 			m.inlineSearchMode = true
 			m.inlineSearchQuery = m.tableContentFilter
+
+		case CommandOpenConnectionManager:
+			// Open connection manager popup
+			m.connManagerMode = true
+			m.connManagerFilter = m.makeConnectionManagerFilter()
+			m.connManagerSelected = 0
+			m.connManagerScroll = 0
+			m.connManagerInsertMode = true // Start in insert mode
+			if m.connHistory != nil {
+				m.filteredConnections = m.connHistory.GetAll()
+			}
 
 		case CommandOpenSearch:
 			m.searchMode = true
@@ -743,6 +883,20 @@ func (m Model) handleTableViewModeKeys(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 			if m.selectedDataRow > 0 {
 				m.selectedDataRow--
 				m = m.adjustTableDataScroll()
+			}
+
+		case CommandNavigateLastColumn:
+			// Move cursor up
+			if m.selectedDataRow > 0 {
+				m.selectedDataCol = len(m.tableColumns) - 1
+				m = m.adjustTableDataHorizontalScroll()
+			}
+
+		case CommandNavigateFirstColumn:
+			// Move cursor up
+			if m.selectedDataRow > 0 {
+				m.selectedDataCol = 0
+				m = m.adjustTableDataHorizontalScroll()
 			}
 
 		case CommandGoToTop:

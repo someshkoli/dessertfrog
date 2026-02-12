@@ -37,13 +37,17 @@ func (m Model) renderTableDataView() string {
 	}
 
 	// Calculate available space for content (accounting for border)
-	availableWidth := m.width - 12 // Screen padding + border
+	availableWidth := m.width - 3 // Screen padding + border
 	if availableWidth < 40 {
 		availableWidth = 40
 	}
-	availableHeight := m.height - 14 // Title, help, status, padding, extra spacing
+	availableHeight := m.height - 12 // Title, help, status, padding, extra spacing
 	if availableHeight < 5 {
 		availableHeight = 5
+	}
+
+	if m.inlineSearchMode {
+		availableHeight = availableHeight - 2 // Screen padding + border
 	}
 
 	// Column widths - calculate based on content
@@ -151,6 +155,8 @@ func (m Model) renderTableDataView() string {
 	// Render data rows
 	for rowIdx := startRow; rowIdx < endRow; rowIdx++ {
 		row := m.tableData[rowIdx]
+		isDeleted := m.deletedRows[rowIdx]
+
 		for _, colIdx := range visibleColumns {
 			var cellText string
 			if colIdx < len(row) {
@@ -166,8 +172,11 @@ func (m Model) renderTableDataView() string {
 				hasPendingEdit = true
 			}
 
-			// Highlight selected cell
-			if rowIdx == m.selectedDataRow && colIdx == m.selectedDataCol {
+			// Apply styling priority: deleted > selected > pending edit
+			if isDeleted {
+				// Show deleted row indicator (red with strikethrough)
+				cellText = m.styles.TableDeletedRowStyle.Render(cellText)
+			} else if rowIdx == m.selectedDataRow && colIdx == m.selectedDataCol {
 				cellText = m.styles.SelectedRowStyle.Render(cellText)
 			} else if hasPendingEdit {
 				// Show pending edit indicator (yellow/warning color)
