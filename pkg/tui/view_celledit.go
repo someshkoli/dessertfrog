@@ -33,30 +33,8 @@ func (m Model) renderCellEditPopup(mainView string) string {
 	}
 	content += m.styles.TitleStyle.Render(title) + "\n\n"
 
-	// Editable input with cursor
-	runes := []rune(m.cellEditValue)
-	cursorPos := m.cellEditCursor
-	if cursorPos < 0 {
-		cursorPos = 0
-	}
-	if cursorPos > len(runes) {
-		cursorPos = len(runes)
-	}
-	beforeCursor := string(runes[:cursorPos])
-	afterCursor := string(runes[cursorPos:])
-
-	// Calculate content width: popup width - outer border (2) - outer padding (4) - inner border (2) - inner padding (2)
-	contentWidth := popupWidth - 10
-	if contentWidth < 30 {
-		contentWidth = 30
-	}
-
-	// Multi-line text area style - smaller height
-	inputBox := m.styles.CellEditInputBoxStyle.Copy().
-		Width(contentWidth)
-
-	inputText := beforeCursor + "█" + afterCursor
-	content += inputBox.Render(inputText) + "\n"
+	// Render textarea
+	content += m.cellEditTextarea.View() + "\n"
 
 	// Help text or command mode
 	if m.cellEditCommandMode {

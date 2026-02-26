@@ -1,6 +1,7 @@
 package tui
 
 import (
+	"github.com/charmbracelet/bubbles/textarea"
 	"github.com/charmbracelet/bubbles/textinput"
 	"github.com/someshkoli/dessertfrog/pkg/connhistory"
 	"github.com/someshkoli/dessertfrog/pkg/driver"
@@ -113,6 +114,16 @@ type CellValuePopupState struct {
 	cellValuePopupTree     []JSONNode // JSON tree structure
 	cellValuePopupScroll   int        // Scroll position in popup
 	cellValuePopupSelected int        // Selected node in JSON tree
+	cellValuePopupStack    []CellValuePopupSnapshot // Stack of previous popup states
+}
+
+// CellValuePopupSnapshot stores a snapshot of popup state for navigation
+type CellValuePopupSnapshot struct {
+	content  string
+	isJSON   bool
+	tree     []JSONNode
+	scroll   int
+	selected int
 }
 
 // RecordViewState manages record view popup (entire row as key-value pairs)
@@ -132,8 +143,8 @@ type ClipboardState struct {
 // CellEditState manages cell editing mode with buffer for multi-cell edits
 type CellEditState struct {
 	cellEditMode        bool              // Whether cell edit popup is active
-	cellEditValue       string            // The cell value being edited
-	cellEditCursor      int               // Cursor position in edit input
+	cellEditInsertMode  bool              // Whether in INSERT mode (true) or VISUAL mode (false)
+	cellEditTextarea    textarea.Model    // Bubble Tea textarea for cell editing
 	cellEditRowIdx      int               // Row index of cell being edited
 	cellEditColIdx      int               // Column index of cell being edited
 	cellEditCommandMode bool              // Whether in command mode (:w to save)
@@ -153,8 +164,7 @@ type CellOperationsState struct {
 // SQLQueryState manages SQL query input and history
 type SQLQueryState struct {
 	sqlQueryMode                 bool                      // Whether SQL query input is active
-	sqlQueryInput                string                    // Current SQL query being typed
-	sqlQueryCursor               int                       // Cursor position in SQL query input
+	sqlQueryInput                textinput.Model           // Bubble Tea text input for SQL query
 	executedSQLQuery             string                    // The SQL query that was executed (shown in title)
 	isCustomQuery                bool                      // Whether current table view is from a custom SQL query
 	sqlHistory                   *sqlhistory.History       // SQL query history for current connection
@@ -327,7 +337,6 @@ func NewModel(config DBConfig, keyBindings KeyBindings, styles Styles) Model {
 
 		connectionStatus = Connecting
 	} else {
-		// No database configured - will start with connection manager
 		connectionStatus = Disconnected
 	}
 
@@ -415,10 +424,12 @@ func NewModel(config DBConfig, keyBindings KeyBindings, styles Styles) Model {
 		},
 	}
 
+
 	// Initialize textinput fields after styles are set
 	m.connInputs = m.makeConnectionInputs()
 	m.passphraseInput = m.makePassphraseInput()
 	m.connManagerFilter = m.makeConnectionManagerFilter()
+	m.sqlQueryInput = m.makeSQLQueryInput()
 
 	return m
 }
@@ -530,4 +541,27 @@ func (m Model) makeConnectionManagerFilter() textinput.Model {
 	input.TextStyle = m.styles.TextInputStyle
 	input.PlaceholderStyle = m.styles.TextInputPlaceholderStyle
 	return input
+}
+
+func (m Model) makeSQLQueryInput() textinput.Model {
+	input := textinput.New()
+	input.Placeholder = "Enter SQL query..."
+	input.CharLimit = 10000
+	input.Width = 100
+	input.Prompt = ""
+	input.TextStyle = m.styles.TextInputStyle
+	input.PlaceholderStyle = m.styles.TextInputPlaceholderStyle
+	return input
+}
+
+func (m Model) makeCellEditTextarea() textarea.Model {
+	ta := textarea.New()
+	ta.Placeholder = "Enter cell value..."
+	ta.CharLimit = 100000
+	ta.SetWidth(m.width - 30)
+	ta.SetHeight(10)
+	ta.ShowLineNumbers = false
+	ta.FocusedStyle.CursorLine = m.styles.TextInputStyle
+	ta.BlurredStyle.CursorLine = m.styles.TextInputStyle
+	return ta
 }

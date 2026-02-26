@@ -1,6 +1,7 @@
 package encryption
 
 import (
+	"context"
 	"crypto/aes"
 	"crypto/cipher"
 	"crypto/rand"
@@ -14,6 +15,7 @@ import (
 	"path/filepath"
 	"runtime"
 	"strings"
+	"time"
 
 	"golang.org/x/crypto/ssh"
 )
@@ -23,8 +25,8 @@ var ErrPassphraseRequired = errors.New("SSH key requires passphrase")
 
 // Config holds encryption configuration
 type Config struct {
-	KeyPath          string
-	KeyType          KeyType
+	KeyPath           string
+	KeyType           KeyType
 	DisableEncryption bool // If true, user chose to continue without encryption
 }
 
@@ -36,7 +38,7 @@ func ConfigPath() (string, error) {
 	}
 
 	configDir := filepath.Join(homeDir, ".config", "dessertfrog")
-	if err := os.MkdirAll(configDir, 0755); err != nil {
+	if err := os.MkdirAll(configDir, 0o755); err != nil {
 		return "", err
 	}
 
@@ -101,7 +103,7 @@ func SaveConfig(config *Config) error {
 	} else {
 		content = fmt.Sprintf("key_path=%s\nkey_type=%s\n", config.KeyPath, config.KeyType)
 	}
-	return os.WriteFile(path, []byte(content), 0600)
+	return os.WriteFile(path, []byte(content), 0o600)
 }
 
 // Encrypt encrypts data using the specified key
@@ -234,26 +236,35 @@ func deriveFromGPGKey(keyPath string) ([]byte, error) {
 	return hash[:], nil
 }
 
+const keyringTimeout = 2 * time.Second
+
 // getKeychainPassword retrieves a password from the OS keychain
 func getKeychainPassword(keyPath string) (string, error) {
 	service := "dessertfrog"
 	account := base64.StdEncoding.EncodeToString([]byte(keyPath))
 
+	ctx, cancel := context.WithTimeout(context.Background(), keyringTimeout)
+	defer cancel()
+
 	switch runtime.GOOS {
 	case "darwin":
-		// macOS Keychain
-		cmd := exec.Command("security", "find-generic-password", "-s", service, "-a", account, "-w")
+		cmd := exec.CommandContext(ctx, "security", "find-generic-password", "-s", service, "-a", account, "-w")
 		output, err := cmd.Output()
 		if err != nil {
+			if ctx.Err() == context.DeadlineExceeded {
+				return "", fmt.Errorf("keychain lookup timed out")
+			}
 			return "", fmt.Errorf("password not found in keychain")
 		}
 		return strings.TrimSpace(string(output)), nil
 
 	case "linux":
-		// Try secret-tool (part of libsecret)
-		cmd := exec.Command("secret-tool", "lookup", "service", service, "account", account)
+		cmd := exec.CommandContext(ctx, "secret-tool", "lookup", "service", service, "account", account)
 		output, err := cmd.Output()
 		if err != nil {
+			if ctx.Err() == context.DeadlineExceeded {
+				return "", fmt.Errorf("keychain lookup timed out")
+			}
 			return "", fmt.Errorf("password not found in keychain")
 		}
 		return strings.TrimSpace(string(output)), nil
@@ -268,17 +279,26 @@ func SaveKeychainPassword(keyPath, password string) error {
 	service := "dessertfrog"
 	account := base64.StdEncoding.EncodeToString([]byte(keyPath))
 
+	ctx, cancel := context.WithTimeout(context.Background(), keyringTimeout)
+	defer cancel()
+
 	switch runtime.GOOS {
 	case "darwin":
-		// macOS Keychain
-		cmd := exec.Command("security", "add-generic-password", "-s", service, "-a", account, "-w", password, "-U")
-		return cmd.Run()
+		cmd := exec.CommandContext(ctx, "security", "add-generic-password", "-s", service, "-a", account, "-w", password, "-U")
+		err := cmd.Run()
+		if ctx.Err() == context.DeadlineExceeded {
+			return fmt.Errorf("keychain save timed out")
+		}
+		return err
 
 	case "linux":
-		// Try secret-tool (part of libsecret)
-		cmd := exec.Command("secret-tool", "store", "--label", "Dessertfrog SSH Key", "service", service, "account", account)
+		cmd := exec.CommandContext(ctx, "secret-tool", "store", "--label", "Dessertfrog SSH Key", "service", service, "account", account)
 		cmd.Stdin = strings.NewReader(password)
-		return cmd.Run()
+		err := cmd.Run()
+		if ctx.Err() == context.DeadlineExceeded {
+			return fmt.Errorf("keychain save timed out")
+		}
+		return err
 
 	default:
 		return fmt.Errorf("keychain not supported on %s", runtime.GOOS)

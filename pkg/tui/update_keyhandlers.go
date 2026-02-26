@@ -1,6 +1,7 @@
 package tui
 
 import (
+	"encoding/json"
 	"fmt"
 
 	tea "github.com/charmbracelet/bubbletea"
@@ -542,9 +543,8 @@ func (m Model) handleNormalModeKeys(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 
 		case CommandOpenSQLQuery:
 			m.sqlQueryMode = true
-			m.sqlQueryInput = ""
-			m.sqlQueryCursor = 0
-			// Show suggestions on open (shows recent queries)
+			m.sqlQueryInput.SetValue("")
+			m.sqlQueryInput.Focus()
 			m = m.updateSQLHistorySuggestions()
 
 		case CommandOpenConnectionManager:
@@ -781,25 +781,21 @@ func (m Model) handleTableViewModeKeys(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 			return m, tea.Quit
 
 		case CommandOpenSQLQuery:
-			// Open SQL query mode - show current query or allow new query
 			if m.isCustomQuery && m.executedSQLQuery != "" {
 				m.sqlQueryMode = true
-				m.sqlQueryInput = m.executedSQLQuery
-				m.sqlQueryCursor = len([]rune(m.sqlQueryInput))
+				m.sqlQueryInput.SetValue(m.executedSQLQuery)
 			} else if m.currentViewTable != nil {
 				query := fmt.Sprintf("SELECT * FROM \"%s\".\"%s\" LIMIT 500 OFFSET %d",
 					m.currentViewTable.SchemaName,
 					m.currentViewTable.TableName,
 					m.tableDataOffset)
 				m.sqlQueryMode = true
-				m.sqlQueryInput = query
-				m.sqlQueryCursor = len([]rune(query))
+				m.sqlQueryInput.SetValue(query)
 			} else {
 				m.sqlQueryMode = true
-				m.sqlQueryInput = ""
-				m.sqlQueryCursor = 0
+				m.sqlQueryInput.SetValue("")
 			}
-			// Show suggestions on open
+			m.sqlQueryInput.Focus()
 			m = m.updateSQLHistorySuggestions()
 
 		case CommandFilterContent:
@@ -914,18 +910,19 @@ func (m Model) handleTableViewModeKeys(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 			if len(m.tableData) > 0 && m.selectedDataRow < len(m.tableData) {
 				row := m.tableData[m.selectedDataRow]
 				if m.selectedDataCol < len(row) {
+					m.cellValuePopupStack = []CellValuePopupSnapshot{} // Clear stack when opening from table view
 					m = m.openCellValuePopup(row[m.selectedDataCol])
 				}
 			}
 
 		case CommandEditCell:
-			// Edit cell value in popup
 			if len(m.tableData) > 0 && m.selectedDataRow < len(m.tableData) {
 				row := m.tableData[m.selectedDataRow]
 				if m.selectedDataCol < len(row) {
 					m.cellEditMode = true
-					m.cellEditValue = row[m.selectedDataCol]
-					m.cellEditCursor = len([]rune(m.cellEditValue))
+					m.cellEditTextarea = m.makeCellEditTextarea()
+					m.cellEditTextarea.SetValue(row[m.selectedDataCol])
+					m.cellEditTextarea.Focus()
 					m.cellEditRowIdx = m.selectedDataRow
 					m.cellEditColIdx = m.selectedDataCol
 					m.cellEditCommandMode = false
@@ -1026,13 +1023,64 @@ func (m Model) handleCellValuePopupKeys(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	if cmd, ok := getCommand(key, m.keyBindings.CellPopup); ok {
 		switch cmd {
 		case CommandCancel:
-			// Close popup
-			m.cellValuePopupMode = false
-			m.cellValuePopupContent = ""
-			m.cellValuePopupIsJSON = false
-			m.cellValuePopupTree = nil
-			m.cellValuePopupScroll = 0
-			m.cellValuePopupSelected = 0
+			// Check if there's a parent popup to return to
+			if len(m.cellValuePopupStack) > 0 {
+				// Pop the previous state from the stack
+				prevState := m.cellValuePopupStack[len(m.cellValuePopupStack)-1]
+				m.cellValuePopupStack = m.cellValuePopupStack[:len(m.cellValuePopupStack)-1]
+
+				// Restore the previous popup state
+				m.cellValuePopupContent = prevState.content
+				m.cellValuePopupIsJSON = prevState.isJSON
+				m.cellValuePopupTree = prevState.tree
+				m.cellValuePopupScroll = prevState.scroll
+				m.cellValuePopupSelected = prevState.selected
+			} else {
+				// No parent popup, close completely
+				m.cellValuePopupMode = false
+				m.cellValuePopupContent = ""
+				m.cellValuePopupIsJSON = false
+				m.cellValuePopupTree = nil
+				m.cellValuePopupScroll = 0
+				m.cellValuePopupSelected = 0
+			}
+
+		case CommandOpenCellPopup:
+			// Open a new cell value popup for the selected JSON node
+			if m.cellValuePopupIsJSON && len(m.cellValuePopupTree) > 0 {
+				if m.cellValuePopupSelected < len(m.cellValuePopupTree) {
+					node := m.cellValuePopupTree[m.cellValuePopupSelected]
+
+					// Convert value to string, handling JSON objects/arrays properly
+					var valueStr string
+					switch node.Type {
+					case "object", "array":
+						// Marshal nested JSON back to string format
+						jsonBytes, err := json.Marshal(node.Value)
+						if err != nil {
+							valueStr = fmt.Sprintf("%v", node.Value)
+						} else {
+							valueStr = string(jsonBytes)
+						}
+					default:
+						// For primitives, use fmt.Sprintf
+						valueStr = fmt.Sprintf("%v", node.Value)
+					}
+
+					// Save current state to stack before opening new popup
+					snapshot := CellValuePopupSnapshot{
+						content:  m.cellValuePopupContent,
+						isJSON:   m.cellValuePopupIsJSON,
+						tree:     m.cellValuePopupTree,
+						scroll:   m.cellValuePopupScroll,
+						selected: m.cellValuePopupSelected,
+					}
+					m.cellValuePopupStack = append(m.cellValuePopupStack, snapshot)
+
+					// Open new popup with the node value
+					m = m.openCellValuePopup(valueStr)
+				}
+			}
 
 		case CommandCopyCellValue:
 			// Copy the appropriate value based on context
@@ -1119,6 +1167,7 @@ func (m Model) handleRecordViewKeys(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		case CommandOpenCellPopup:
 			// Open cell value popup for the selected field
 			if m.recordViewSelected < len(m.recordViewData) {
+				m.cellValuePopupStack = []CellValuePopupSnapshot{} // Clear stack when opening from record view
 				m = m.openCellValuePopup(m.recordViewData[m.recordViewSelected])
 			}
 
@@ -1161,7 +1210,6 @@ func (m Model) handleRecordViewKeys(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 // handleSQLQueryModeKeys handles keyboard input in SQL query mode
 func (m Model) handleSQLQueryModeKeys(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	key := msg.String()
-	runes := []rune(m.sqlQueryInput)
 
 	// Handle up/down for history suggestions navigation
 	if key == "up" || key == "ctrl+k" {
@@ -1181,11 +1229,10 @@ func (m Model) handleSQLQueryModeKeys(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 			return m, nil
 		}
 	} else if key == "ctrl+n" {
-		// Ctrl+N to toggle suggestions visibility
 		if m.sqlHistory != nil {
 			m.sqlHistorySuggestionsVisible = !m.sqlHistorySuggestionsVisible
 			if m.sqlHistorySuggestionsVisible {
-				m.sqlHistorySuggestions = m.sqlHistory.SearchEntries(m.sqlQueryInput)
+				m.sqlHistorySuggestions = m.sqlHistory.SearchEntries(m.sqlQueryInput.Value())
 				if len(m.sqlHistorySuggestions) > 0 {
 					m.sqlHistorySelected = 0
 				} else {
@@ -1200,116 +1247,65 @@ func (m Model) handleSQLQueryModeKeys(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	if cmd, ok := getCommand(key, m.keyBindings.SQLQuery); ok {
 		switch cmd {
 		case CommandConfirm:
-			// If suggestions are visible, select the highlighted suggestion
 			if m.sqlHistorySuggestionsVisible && m.sqlHistorySelected >= 0 && m.sqlHistorySelected < len(m.sqlHistorySuggestions) {
-				m.sqlQueryInput = m.sqlHistorySuggestions[m.sqlHistorySelected].Query
-				m.sqlQueryCursor = len([]rune(m.sqlQueryInput))
+				m.sqlQueryInput.SetValue(m.sqlHistorySuggestions[m.sqlHistorySelected].Query)
 				m.sqlHistorySuggestionsVisible = false
 				m.sqlHistorySelected = -1
 				return m, nil
 			}
 
-			// Otherwise, execute the SQL query
-			if m.sqlQueryInput != "" {
+			if m.sqlQueryInput.Value() != "" {
 				m.sqlQueryMode = false
 				m.sqlHistorySuggestionsVisible = false
 				m.sqlHistorySelected = -1
 				m.tableViewMode = true
 				m.tableDataLoading = true
-				return m, executeSQLQuery(m.driver, m.sqlQueryInput)
+				return m, executeSQLQuery(m.driver, m.sqlQueryInput.Value())
 			}
-			// If input is empty, just stay in SQL query mode
 			return m, nil
 
 		case CommandCancel:
-			// Cancel SQL query mode or close suggestions
 			if m.sqlHistorySuggestionsVisible {
 				m.sqlHistorySuggestionsVisible = false
 				m.sqlHistorySelected = -1
 			} else {
 				m.sqlQueryMode = false
-				m.sqlQueryInput = ""
-				m.sqlQueryCursor = 0
-			}
-
-		case CommandCursorLeft:
-			if m.sqlQueryCursor > 0 {
-				m.sqlQueryCursor--
-			}
-
-		case CommandCursorRight:
-			if m.sqlQueryCursor < len(runes) {
-				m.sqlQueryCursor++
-			}
-
-		case CommandCursorHome:
-			m.sqlQueryCursor = 0
-
-		case CommandCursorEnd:
-			m.sqlQueryCursor = len(runes)
-
-		case CommandBackspace:
-			if m.sqlQueryCursor > 0 && m.sqlQueryCursor <= len(runes) {
-				runes = append(runes[:m.sqlQueryCursor-1], runes[m.sqlQueryCursor:]...)
-				m.sqlQueryInput = string(runes)
-				m.sqlQueryCursor--
-				// Update suggestions based on new input
-				m = m.updateSQLHistorySuggestions()
-			}
-
-		case CommandDeleteChar:
-			if m.sqlQueryCursor >= 0 && m.sqlQueryCursor < len(runes) {
-				runes = append(runes[:m.sqlQueryCursor], runes[m.sqlQueryCursor+1:]...)
-				m.sqlQueryInput = string(runes)
-				// Update suggestions based on new input
-				m = m.updateSQLHistorySuggestions()
+				m.sqlQueryInput.SetValue("")
 			}
 
 		case CommandQuit:
 			return m, tea.Quit
 		}
 	} else {
-		// Handle text input (default case)
-		keyStr := msg.String()
-		if len(keyStr) == 1 || keyStr == "space" {
-			var charToInsert rune
-			if keyStr == "space" {
-				charToInsert = ' '
-			} else {
-				charToInsert = []rune(keyStr)[0]
-			}
-			if m.sqlQueryCursor >= 0 && m.sqlQueryCursor <= len(runes) {
-				runes = append(runes[:m.sqlQueryCursor], append([]rune{charToInsert}, runes[m.sqlQueryCursor:]...)...)
-				m.sqlQueryInput = string(runes)
-				m.sqlQueryCursor++
-				// Update suggestions based on new input
-				m = m.updateSQLHistorySuggestions()
-			}
+		// Delegate to textinput for all other keys
+		oldValue := m.sqlQueryInput.Value()
+		var cmd tea.Cmd
+		m.sqlQueryInput, cmd = m.sqlQueryInput.Update(msg)
+
+		// Update suggestions if the value changed
+		if m.sqlQueryInput.Value() != oldValue {
+			m = m.updateSQLHistorySuggestions()
 		}
+
+		return m, cmd
 	}
 
 	return m, nil
 }
 
-// updateSQLHistorySuggestions updates the history suggestions based on current input
-// This enables live search - suggestions appear automatically as you type
 func (m Model) updateSQLHistorySuggestions() Model {
 	if m.sqlHistory == nil {
 		return m
 	}
 
-	// Always search and show suggestions when typing (live search)
-	m.sqlHistorySuggestions = m.sqlHistory.SearchEntries(m.sqlQueryInput)
+	m.sqlHistorySuggestions = m.sqlHistory.SearchEntries(m.sqlQueryInput.Value())
 
-	// Show suggestions automatically if we have matches
 	if len(m.sqlHistorySuggestions) > 0 {
 		m.sqlHistorySuggestionsVisible = true
-		// Reset selection to first item if out of bounds
 		if m.sqlHistorySelected < 0 || m.sqlHistorySelected >= len(m.sqlHistorySuggestions) {
 			m.sqlHistorySelected = 0
 		}
 	} else {
-		// Hide suggestions if no matches
 		m.sqlHistorySuggestionsVisible = false
 		m.sqlHistorySelected = -1
 	}
@@ -1323,16 +1319,12 @@ func (m Model) handleCellEditModeKeys(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 
 	// If in command mode within edit mode
 	if m.cellEditCommandMode {
-		// Check for command mode bindings
 		if cmd, ok := getCommand(key, m.keyBindings.CommandMode); ok {
 			switch cmd {
 			case CommandConfirm:
-				// Execute command
 				if m.cellEditCommand == ":w" || m.cellEditCommand == ":w " {
-					// Batch update all cells in buffer
 					return m.batchUpdateCells()
 				} else if m.cellEditCommand == ":q" || m.cellEditCommand == ":q " {
-					// Quit without saving - clear buffer
 					m.cellEditMode = false
 					m.cellEditCommandMode = false
 					m.cellEditCommand = ""
@@ -1350,7 +1342,6 @@ func (m Model) handleCellEditModeKeys(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 				return m, tea.Quit
 			}
 		} else {
-			// Handle text input for command
 			if key == "backspace" {
 				if len(m.cellEditCommand) > 0 {
 					m.cellEditCommand = m.cellEditCommand[:len(m.cellEditCommand)-1]
@@ -1366,31 +1357,15 @@ func (m Model) handleCellEditModeKeys(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		return m, nil
 	}
 
-	// Normal edit mode (not command mode)
-	runes := []rune(m.cellEditValue)
-
-	// Handle special keys first
-	switch key {
-	case "enter":
-		// Enter: Save current cell to buffer and close popup
+	// Handle special keys
+	if key == "enter" && !msg.Alt {
 		return m.saveCellToBuffer()
-
-	case "ctrl+enter":
-		// Ctrl+Enter: Insert newline
-		runes = append(runes[:m.cellEditCursor], append([]rune{'\n'}, runes[m.cellEditCursor:]...)...)
-		m.cellEditValue = string(runes)
-		m.cellEditCursor++
-		return m, nil
 	}
 
-	// Check key bindings for commands
 	if cmd, ok := getCommand(key, m.keyBindings.CellEdit); ok {
 		switch cmd {
 		case CommandCancel:
-			// Esc: Close popup without saving current cell (buffer remains)
 			m.cellEditMode = false
-			m.cellEditValue = ""
-			m.cellEditCursor = 0
 			m.cellEditCommandMode = false
 			m.cellEditCommand = ""
 
@@ -1398,58 +1373,16 @@ func (m Model) handleCellEditModeKeys(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 			m.cellEditCommandMode = true
 			m.cellEditCommand = ":"
 
-		case CommandCursorLeft:
-			if m.cellEditCursor > 0 {
-				m.cellEditCursor--
-			}
-
-		case CommandCursorRight:
-			if m.cellEditCursor < len(runes) {
-				m.cellEditCursor++
-			}
-
-		case CommandCursorHome:
-			m.cellEditCursor = 0
-
-		case CommandCursorEnd:
-			m.cellEditCursor = len(runes)
-
-		case CommandBackspace:
-			if m.cellEditCursor > 0 && m.cellEditCursor <= len(runes) {
-				runes = append(runes[:m.cellEditCursor-1], runes[m.cellEditCursor:]...)
-				m.cellEditValue = string(runes)
-				m.cellEditCursor--
-			}
-
-		case CommandDeleteChar:
-			if m.cellEditCursor >= 0 && m.cellEditCursor < len(runes) {
-				runes = append(runes[:m.cellEditCursor], runes[m.cellEditCursor+1:]...)
-				m.cellEditValue = string(runes)
-			}
-
 		case CommandQuit:
 			return m, tea.Quit
 		}
-	} else {
-		// Handle text input (default case)
-		if len(key) == 1 || key == "space" || key == "tab" {
-			var charToInsert rune
-			if key == "space" {
-				charToInsert = ' '
-			} else if key == "tab" {
-				charToInsert = '\t'
-			} else {
-				charToInsert = []rune(key)[0]
-			}
-			if m.cellEditCursor >= 0 && m.cellEditCursor <= len(runes) {
-				runes = append(runes[:m.cellEditCursor], append([]rune{charToInsert}, runes[m.cellEditCursor:]...)...)
-				m.cellEditValue = string(runes)
-				m.cellEditCursor++
-			}
-		}
+		return m, nil
 	}
 
-	return m, nil
+	// Delegate to textarea for all other keys
+	var cmd tea.Cmd
+	m.cellEditTextarea, cmd = m.cellEditTextarea.Update(msg)
+	return m, cmd
 }
 
 // handleDebugPanelKeys handles keyboard input when debug panel is focused

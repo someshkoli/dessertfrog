@@ -6,29 +6,23 @@ import (
 	tea "github.com/charmbracelet/bubbletea"
 )
 
-// saveCellToBuffer saves the current cell edit to the buffer and closes the popup
 func (m Model) saveCellToBuffer() (tea.Model, tea.Cmd) {
-	// Create buffer key from row:col indices
 	bufferKey := fmt.Sprintf("%d:%d", m.cellEditRowIdx, m.cellEditColIdx)
+	newValue := m.cellEditTextarea.Value()
 
-	// Save to buffer
-	m.cellEditBuffer[bufferKey] = m.cellEditValue
+	m.cellEditBuffer[bufferKey] = newValue
 	m.cellEditBufferCount = len(m.cellEditBuffer)
 
-	// Update the visual display immediately (local update, not DB)
 	if m.cellEditRowIdx >= 0 && m.cellEditRowIdx < len(m.tableData) {
 		if m.cellEditColIdx >= 0 && m.cellEditColIdx < len(m.tableData[m.cellEditRowIdx]) {
-			m.tableData[m.cellEditRowIdx][m.cellEditColIdx] = m.cellEditValue
+			m.tableData[m.cellEditRowIdx][m.cellEditColIdx] = newValue
 		}
 	}
 
 	m = m.debugLog("Saved cell to buffer: row=%d, col=%d, pending=%d",
 		m.cellEditRowIdx, m.cellEditColIdx, m.cellEditBufferCount)
 
-	// Close the edit popup
 	m.cellEditMode = false
-	m.cellEditValue = ""
-	m.cellEditCursor = 0
 	m.cellEditCommandMode = false
 	m.cellEditCommand = ""
 

@@ -35,18 +35,7 @@ func (m Model) View() string {
 			bottomBar = cmdLine + "\n" + m.styles.HelpStyle.Render("Enter: execute | Esc: cancel")
 		} else if m.sqlQueryMode {
 			sqlPrompt := "SQL Query: "
-			// Insert cursor at the correct position (using runes for UTF-8)
-			runes := []rune(m.sqlQueryInput)
-			cursorPos := m.sqlQueryCursor
-			if cursorPos < 0 {
-				cursorPos = 0
-			}
-			if cursorPos > len(runes) {
-				cursorPos = len(runes)
-			}
-			beforeCursor := string(runes[:cursorPos])
-			afterCursor := string(runes[cursorPos:])
-			sqlInput := m.styles.CommandLineStyle.Render(sqlPrompt + beforeCursor + "█" + afterCursor)
+			sqlInput := m.styles.CommandLineStyle.Render(sqlPrompt + m.sqlQueryInput.View())
 			if m.sqlHistorySuggestionsVisible {
 				bottomBar = sqlInput + "\n" + m.styles.HelpStyle.Render("Enter: select | ↑/↓: navigate | Esc: close suggestions | Ctrl+N: toggle")
 			} else {
@@ -233,18 +222,7 @@ func (m Model) View() string {
 			bottomBar = cmdLine
 		} else if m.sqlQueryMode {
 			sqlPrompt := "SQL Query: "
-			// Insert cursor at the correct position (using runes for UTF-8)
-			runes := []rune(m.sqlQueryInput)
-			cursorPos := m.sqlQueryCursor
-			if cursorPos < 0 {
-				cursorPos = 0
-			}
-			if cursorPos > len(runes) {
-				cursorPos = len(runes)
-			}
-			beforeCursor := string(runes[:cursorPos])
-			afterCursor := string(runes[cursorPos:])
-			sqlInput := m.styles.CommandLineStyle.Render(sqlPrompt + beforeCursor + "█" + afterCursor)
+			sqlInput := m.styles.CommandLineStyle.Render(sqlPrompt + m.sqlQueryInput.View())
 			if m.sqlHistorySuggestionsVisible {
 				bottomBar = sqlInput + "\n" + m.styles.HelpStyle.Render("Enter: select | ↑/↓: navigate | Esc: cancel | Ctrl+N: toggle")
 			} else {

@@ -404,32 +404,21 @@ func (m Model) handleSQLQueryFailed(msg sqlQueryFailedMsg) (tea.Model, tea.Cmd) 
 	return m, nil
 }
 
-// handleCellUpdateSuccess handles successful cell update
 func (m Model) handleCellUpdateSuccess(msg cellUpdateSuccessMsg) (tea.Model, tea.Cmd) {
-	// Cell update successful - close edit popup and stay on current page
 	m.cellEditMode = false
-	m.cellEditValue = ""
-	m.cellEditCursor = 0
 	m.cellEditCommandMode = false
 	m.cellEditCommand = ""
-	// Update the cell value in the current data without refreshing
 	if m.cellEditRowIdx >= 0 && m.cellEditRowIdx < len(m.tableData) {
 		if m.cellEditColIdx >= 0 && m.cellEditColIdx < len(m.tableData[m.cellEditRowIdx]) {
 			m.tableData[m.cellEditRowIdx][m.cellEditColIdx] = msg.newValue
 		}
 	}
-	// Clear any previous errors
 	m.tableDataError = ""
 	return m, nil
 }
 
-// handleCellUpdateFailed handles failed cell update
 func (m Model) handleCellUpdateFailed(msg cellUpdateFailedMsg) (tea.Model, tea.Cmd) {
-	// Cell update failed - show error in edit popup or as notification
-	// For now, we'll show it in the table error field and close the popup
 	m.cellEditMode = false
-	m.cellEditValue = ""
-	m.cellEditCursor = 0
 	m.cellEditCommandMode = false
 	m.cellEditCommand = ""
 	m.tableDataError = fmt.Sprintf("Update failed: %v", msg.err)
@@ -476,9 +465,9 @@ func (m Model) handleClearClipboard(msg clearClipboardMsgType) (tea.Model, tea.C
 	return m, nil
 }
 
-// handleWindowSizeMsg handles window size changes
 func (m Model) handleWindowSizeMsg(msg tea.WindowSizeMsg) (tea.Model, tea.Cmd) {
 	m.width = msg.Width
 	m.height = msg.Height
+	m.sqlQueryInput.Width = msg.Width - 20
 	return m, nil
 }
