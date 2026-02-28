@@ -287,11 +287,26 @@ func (m Model) handleTableDataLoaded(msg tableDataLoadedMsg) (tea.Model, tea.Cmd
 	m.tableContentFilter = "" // Clear filter on new data load
 	m.queryTime = msg.queryTime
 	m.fetchTime = msg.fetchTime
-	// Reset scroll and selection when new data is loaded
-	m.tableDataScrollX = 0
-	m.tableDataScrollY = 0
-	m.selectedDataRow = 0
-	m.selectedDataCol = 0
+	if m.restoreCursor {
+		m.restoreCursor = false
+		if m.savedCursorRow < len(msg.rows) {
+			m.selectedDataRow = m.savedCursorRow
+		} else {
+			m.selectedDataRow = 0
+		}
+		if m.savedCursorCol < len(msg.columns) {
+			m.selectedDataCol = m.savedCursorCol
+		} else {
+			m.selectedDataCol = 0
+		}
+		m.tableDataScrollY = m.selectedDataRow
+		m = m.adjustTableDataHorizontalScroll()
+	} else {
+		m.tableDataScrollX = 0
+		m.tableDataScrollY = 0
+		m.selectedDataRow = 0
+		m.selectedDataCol = 0
+	}
 	// Note: tableDataOffset is managed by pagination handlers, not reset here
 
 	// Push to history only if this is not a history navigation
@@ -451,9 +466,7 @@ func (m Model) handleRowsDeleteFailed(msg rowsDeleteFailedMsg) (tea.Model, tea.C
 	// Show error message
 	m.tableDataError = fmt.Sprintf("Delete failed: %v", msg.err)
 
-	// Clear the deleted rows tracking on failure
-	m.deletedRows = make(map[int]bool)
-	m.deletedRowsCount = 0
+	delete(m.deletedRows, m.currentTableKey())
 
 	return m, nil
 }

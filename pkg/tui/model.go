@@ -9,6 +9,15 @@ import (
 	"github.com/someshkoli/dessertfrog/pkg/sqlhistory"
 )
 
+// SortOrder represents the direction of a column sort
+type SortOrder int
+
+const (
+	SortNone SortOrder = iota
+	SortAsc
+	SortDesc
+)
+
 // DBConfig holds database connection information
 type DBConfig struct {
 	Driver   string
@@ -99,9 +108,12 @@ type TableDataState struct {
 	allTableData       [][]string          // Unfiltered table data (backup for filtering)
 	queryTime          string              // Time taken to execute query (e.g., "15ms")
 	fetchTime          string              // Time taken to fetch data (e.g., "23ms")
-	deletedRows        map[int]bool        // Track which rows are marked for deletion (row index -> true)
-	deletedRowsCount   int                 // Number of rows marked for deletion
-	lastKeyPress       rune                // Last key pressed (for detecting dd sequence)
+	deletedRows   map[string]map[int]bool    // Track which rows are marked for deletion (table key -> row index -> true)
+	tableSort     map[string]tableSortState  // Sort state per table key
+	restoreCursor bool                       // Restore cursor position after next data load
+	savedCursorRow   int                     // Cursor row to restore
+	savedCursorCol   int                     // Cursor col to restore
+	lastKeyPress     rune                    // Last key pressed (for detecting dd sequence)
 	visualMode         bool                // Whether in visual mode (for selecting multiple rows)
 	visualStartRow     int                 // Starting row of visual selection
 }
@@ -357,9 +369,9 @@ func NewModel(config DBConfig, keyBindings KeyBindings, styles Styles) Model {
 			SchemaPanelState: SchemaPanelState{},
 		},
 		TableDataState: TableDataState{
-			deletedRows:      make(map[int]bool),
-			deletedRowsCount: 0,
-			visualMode:       true,
+			deletedRows: make(map[string]map[int]bool),
+			tableSort:   make(map[string]tableSortState),
+			visualMode:  true,
 		},
 		CellOperationsState: CellOperationsState{
 			CellValuePopupState: CellValuePopupState{},
@@ -432,6 +444,39 @@ func NewModel(config DBConfig, keyBindings KeyBindings, styles Styles) Model {
 	m.sqlQueryInput = m.makeSQLQueryInput()
 
 	return m
+}
+
+// tableSortState holds the active sort for a single table.
+type tableSortState struct {
+	column string
+	order  SortOrder
+}
+
+func (m Model) currentTableKey() string {
+	if m.currentViewTable == nil {
+		return ""
+	}
+	return m.currentViewTable.SchemaName + "." + m.currentViewTable.TableName
+}
+
+func (m Model) currentDeletedRows() map[int]bool {
+	return m.deletedRows[m.currentTableKey()]
+}
+
+func (m Model) currentSort() tableSortState {
+	return m.tableSort[m.currentTableKey()]
+}
+
+func (m *Model) setSort(column string, order SortOrder) {
+	key := m.currentTableKey()
+	if key == "" {
+		return
+	}
+	m.tableSort[key] = tableSortState{column: column, order: order}
+}
+
+func (m *Model) clearSort() {
+	delete(m.tableSort, m.currentTableKey())
 }
 
 // makeConnectionInputs creates the text input fields for the connection form

@@ -249,7 +249,7 @@ func (m Model) handleCommandModeKeys(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 
 			// Check if we have both updates and deletes
 			hasUpdates := m.cellEditBufferCount > 0
-			hasDeletes := m.deletedRowsCount > 0
+			hasDeletes := len(m.currentDeletedRows()) > 0
 
 			if hasDeletes {
 				return m.batchDeleteRows()
@@ -719,19 +719,18 @@ func (m Model) handleTableViewModeKeys(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	// Handle dd key sequence (vim-style row deletion)
 	if key == "d" {
 		if m.lastKeyPress == 'd' {
-			// Second 'd' pressed - mark current row for deletion
 			if len(m.tableData) > 0 && m.selectedDataRow < len(m.tableData) {
-				if m.deletedRows[m.selectedDataRow] {
-					// Already marked - unmark it
-					delete(m.deletedRows, m.selectedDataRow)
-					m.deletedRowsCount--
+				tableKey := m.currentTableKey()
+				if m.deletedRows[tableKey] == nil {
+					m.deletedRows[tableKey] = make(map[int]bool)
+				}
+				if m.deletedRows[tableKey][m.selectedDataRow] {
+					delete(m.deletedRows[tableKey], m.selectedDataRow)
 				} else {
-					// Mark for deletion
-					m.deletedRows[m.selectedDataRow] = true
-					m.deletedRowsCount++
+					m.deletedRows[tableKey][m.selectedDataRow] = true
 				}
 			}
-			m.lastKeyPress = 0 // Reset
+			m.lastKeyPress = 0
 			return m, nil
 		}
 		// First 'd' pressed - store it
@@ -820,22 +819,62 @@ func (m Model) handleTableViewModeKeys(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 			m.filteredTables = m.allEntities
 			m.searchSelected = 0
 
+		case CommandSortAsc:
+			if m.currentViewTable != nil && m.selectedDataCol < len(m.tableColumns) {
+				col := m.tableColumns[m.selectedDataCol]
+				m.restoreCursor = true
+				m.savedCursorRow = m.selectedDataRow
+				m.savedCursorCol = m.selectedDataCol
+				m.tableDataOffset = 0
+				m.tableDataLoading = true
+				cur := m.currentSort()
+				if cur.column == col && cur.order == SortAsc {
+					m.clearSort()
+					return m, fetchTableData(m.driver, m.currentViewTable.SchemaName, m.currentViewTable.TableName, 0)
+				}
+				m.setSort(col, SortAsc)
+				return m, fetchTableDataSorted(m.driver, m.currentViewTable.SchemaName, m.currentViewTable.TableName, col, SortAsc, 0)
+			}
+
+		case CommandSortDesc:
+			if m.currentViewTable != nil && m.selectedDataCol < len(m.tableColumns) {
+				col := m.tableColumns[m.selectedDataCol]
+				m.restoreCursor = true
+				m.savedCursorRow = m.selectedDataRow
+				m.savedCursorCol = m.selectedDataCol
+				m.tableDataOffset = 0
+				m.tableDataLoading = true
+				cur := m.currentSort()
+				if cur.column == col && cur.order == SortDesc {
+					m.clearSort()
+					return m, fetchTableData(m.driver, m.currentViewTable.SchemaName, m.currentViewTable.TableName, 0)
+				}
+				m.setSort(col, SortDesc)
+				return m, fetchTableDataSorted(m.driver, m.currentViewTable.SchemaName, m.currentViewTable.TableName, col, SortDesc, 0)
+			}
+
 		case CommandNextPage:
-			// Next page - load next 500 rows
 			if m.currentViewTable != nil && len(m.tableData) == 500 {
 				m.tableDataOffset += 500
 				m.tableDataLoading = true
+				cur := m.currentSort()
+				if cur.order != SortNone {
+					return m, fetchTableDataSorted(m.driver, m.currentViewTable.SchemaName, m.currentViewTable.TableName, cur.column, cur.order, m.tableDataOffset)
+				}
 				return m, fetchTableData(m.driver, m.currentViewTable.SchemaName, m.currentViewTable.TableName, m.tableDataOffset)
 			}
 
 		case CommandPreviousPage:
-			// Previous page - load previous 500 rows
 			if m.currentViewTable != nil && m.tableDataOffset > 0 {
 				m.tableDataOffset -= 500
 				if m.tableDataOffset < 0 {
 					m.tableDataOffset = 0
 				}
 				m.tableDataLoading = true
+				cur := m.currentSort()
+				if cur.order != SortNone {
+					return m, fetchTableDataSorted(m.driver, m.currentViewTable.SchemaName, m.currentViewTable.TableName, cur.column, cur.order, m.tableDataOffset)
+				}
 				return m, fetchTableData(m.driver, m.currentViewTable.SchemaName, m.currentViewTable.TableName, m.tableDataOffset)
 			}
 

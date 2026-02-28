@@ -76,18 +76,17 @@ func (m Model) batchUpdateCells() (tea.Model, tea.Cmd) {
 	return m, tea.Batch(cmds...)
 }
 
-// batchDeleteRows deletes all rows marked for deletion from the database
 func (m Model) batchDeleteRows() (tea.Model, tea.Cmd) {
-	if len(m.deletedRows) == 0 {
-		// No rows marked for deletion
+	tableKey := m.currentTableKey()
+	tableDeletedRows := m.deletedRows[tableKey]
+	if len(tableDeletedRows) == 0 {
 		return m, nil
 	}
 
-	m = m.debugLog("Starting batch delete for %d rows", len(m.deletedRows))
+	m = m.debugLog("Starting batch delete for %d rows", len(tableDeletedRows))
 
-	// Collect all rows to delete
 	var rowsToDelete [][]string
-	for rowIdx := range m.deletedRows {
+	for rowIdx := range tableDeletedRows {
 		if rowIdx >= 0 && rowIdx < len(m.tableData) {
 			rowsToDelete = append(rowsToDelete, m.tableData[rowIdx])
 		}
@@ -98,7 +97,6 @@ func (m Model) batchDeleteRows() (tea.Model, tea.Cmd) {
 		return m, nil
 	}
 
-	// Create delete command
 	cmd := deleteRows(
 		m.driver,
 		m.currentViewTable,
@@ -106,10 +104,7 @@ func (m Model) batchDeleteRows() (tea.Model, tea.Cmd) {
 		rowsToDelete,
 	)
 
-	// Clear the deleted rows tracking after scheduling delete
-	m.deletedRows = make(map[int]bool)
-	m.deletedRowsCount = 0
+	delete(m.deletedRows, tableKey)
 
-	// Execute the delete command
 	return m, cmd
 }

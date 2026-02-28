@@ -105,7 +105,10 @@ func (p *PostgresDriver) GetTables(ctx context.Context) ([]TableSchema, error) {
 				t.table_type,
 				COUNT(c.column_name) as column_count,
 				obj_description((t.table_schema || '.' || t.table_name)::regclass, 'pg_class') as table_comment,
-				COALESCE(pgc.reltuples, 0)::bigint as row_count
+				GREATEST(
+					COALESCE(MAX(pgstat.n_live_tup), 0),
+					GREATEST(COALESCE(MAX(pgc.reltuples)::bigint, 0), 0)
+				)::bigint as row_count
 			FROM information_schema.tables t
 			LEFT JOIN information_schema.columns c
 				ON t.table_schema = c.table_schema
@@ -113,8 +116,11 @@ func (p *PostgresDriver) GetTables(ctx context.Context) ([]TableSchema, error) {
 			LEFT JOIN pg_class pgc
 				ON pgc.relname = t.table_name
 				AND pgc.relnamespace = (SELECT oid FROM pg_namespace WHERE nspname = t.table_schema)
+			LEFT JOIN pg_stat_user_tables pgstat
+				ON pgstat.schemaname = t.table_schema
+				AND pgstat.relname = t.table_name
 			WHERE t.table_schema = $1
-			GROUP BY t.table_schema, t.table_name, t.table_type, pgc.reltuples
+			GROUP BY t.table_schema, t.table_name, t.table_type
 			ORDER BY t.table_name
 		`
 		rows, err = p.pool.Query(ctx, query, p.config.Schema)
@@ -127,7 +133,10 @@ func (p *PostgresDriver) GetTables(ctx context.Context) ([]TableSchema, error) {
 				t.table_type,
 				COUNT(c.column_name) as column_count,
 				obj_description((t.table_schema || '.' || t.table_name)::regclass, 'pg_class') as table_comment,
-				COALESCE(pgc.reltuples, 0)::bigint as row_count
+				GREATEST(
+					COALESCE(MAX(pgstat.n_live_tup), 0),
+					GREATEST(COALESCE(MAX(pgc.reltuples)::bigint, 0), 0)
+				)::bigint as row_count
 			FROM information_schema.tables t
 			LEFT JOIN information_schema.columns c
 				ON t.table_schema = c.table_schema
@@ -135,8 +144,11 @@ func (p *PostgresDriver) GetTables(ctx context.Context) ([]TableSchema, error) {
 			LEFT JOIN pg_class pgc
 				ON pgc.relname = t.table_name
 				AND pgc.relnamespace = (SELECT oid FROM pg_namespace WHERE nspname = t.table_schema)
+			LEFT JOIN pg_stat_user_tables pgstat
+				ON pgstat.schemaname = t.table_schema
+				AND pgstat.relname = t.table_name
 			WHERE t.table_schema NOT IN ('pg_catalog', 'information_schema')
-			GROUP BY t.table_schema, t.table_name, t.table_type, pgc.reltuples
+			GROUP BY t.table_schema, t.table_name, t.table_type
 			ORDER BY t.table_schema, t.table_name
 		`
 		rows, err = p.pool.Query(ctx, query)

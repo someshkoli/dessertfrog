@@ -49,6 +49,8 @@ const (
 	// Table view commands
 	CommandNextPage       Command = "next_page"
 	CommandPreviousPage   Command = "previous_page"
+	CommandSortAsc        Command = "sort_asc"
+	CommandSortDesc       Command = "sort_desc"
 	CommandEditCell       Command = "edit_cell"
 	CommandDeleteRow      Command = "CommandDeleteRow"
 	CommandCopyCellValue  Command = "copy_cell_value"
@@ -148,6 +150,10 @@ func DefaultKeyBindings() KeyBindings {
 			{"n", CommandNextPage},
 			{"p", CommandPreviousPage},
 
+			// Sorting
+			{"o", CommandSortAsc},
+			{"O", CommandSortDesc},
+
 			// Actions
 			{"i", CommandEditCell},
 			{"y", CommandCopyCellValue},
@@ -187,6 +193,7 @@ func DefaultKeyBindings() KeyBindings {
 			{"enter", CommandInsertNewline},
 		},
 		SQLQuery: []KeyBinding{
+			{"enter", CommandConfirm},
 			{"esc", CommandCancel},
 			{"home", CommandCursorHome},
 			{"end", CommandCursorEnd},

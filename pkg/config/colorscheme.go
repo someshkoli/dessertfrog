@@ -58,8 +58,18 @@ type ColorSchemeConfig struct {
 	CellPendingEdit string `yaml:"cell_pending_edit,omitempty"` // Pending edit indicator (default: 220)
 
 	// Table data colors
-	TableFilter    string `yaml:"table_filter,omitempty"`    // Filter indicator (default: 226)
-	TableClipboard string `yaml:"table_clipboard,omitempty"` // Clipboard success (default: 120)
+	TableFilter            string `yaml:"table_filter,omitempty"`              // Filter indicator (default: 226)
+	TableClipboard         string `yaml:"table_clipboard,omitempty"`           // Clipboard success (default: 120)
+	TableSeparator         string `yaml:"table_separator,omitempty"`           // Column/row separator and border (default: 238)
+	TableDeletedSelectedBg string `yaml:"table_deleted_selected_bg,omitempty"` // Cursor-on-deleted-row background (default: 1)
+	TableDeletedSelectedFg string `yaml:"table_deleted_selected_fg,omitempty"` // Cursor-on-deleted-row foreground (default: 15)
+
+	// Mode indicator colors
+	ModeIndicatorFg     string `yaml:"mode_indicator_fg,omitempty"`      // Text color for all mode indicators (default: 0)
+	ModeNormalBg        string `yaml:"mode_normal_bg,omitempty"`         // Normal mode background (default: 12)
+	ModeVisualBg        string `yaml:"mode_visual_bg,omitempty"`         // Visual mode background (default: 13)
+	ModeInsertBg        string `yaml:"mode_insert_bg,omitempty"`         // Insert mode background (default: 10)
+	PassphraseKeyInfoFg string `yaml:"passphrase_key_info_fg,omitempty"` // Passphrase key info text (default: 241)
 
 	// SQL history colors
 	SQLHistoryTitle    string `yaml:"sql_history_title,omitempty"`    // History title (default: 205)
@@ -83,55 +93,64 @@ type ColorSchemeConfig struct {
 // DefaultColorScheme returns the default color scheme
 func DefaultColorScheme() ColorSchemeConfig {
 	return ColorSchemeConfig{
-		Primary:            "#7D56F4",
-		Secondary:          "#808080",
-		Background:         "#1a1a1a",
-		Foreground:         "#FFFFFF",
-		Text:               "255",
-		HelpText:           "#626262",
-		GhostText:          "#666666",
-		StatusText:         "#AAAAAA",
-		InputBackground:    "235",
-		BorderActive:       "#7D56F4",
-		BorderInactive:     "#4A4A4A",
-		BorderNormal:       "#808080",
-		SelectionBg:        "#7D56F4",
-		SelectionFg:        "#FFFFFF",
-		StatusConnected:    "#00FF00",
-		StatusDisconnected: "#FF0000",
-		StatusConnecting:   "#FFFF00",
-		StatusError:        "#FF6666",
-		CommandBg:          "#7D56F4",
-		CommandFg:          "#FAFAFA",
-		PopupBg:            "#1a1a1a",
-		PopupBorder:        "62",
-		OverlayBg:          "#000000",
-		StatusLineBg:       "#2C2C2C",
-		StatusLineFg:       "#FFFFFF",
-		SchemaTitle:        "205",
-		SchemaSection:      "39",
-		SchemaField:        "252",
-		SchemaColumnName:   "228",
-		SchemaType:         "141",
-		SchemaPrimaryKey:   "205",
-		SchemaForeignKey:   "214",
-		SchemaEmpty:        "241",
-		SchemaLoading:      "241",
-		CellPendingEdit:    "220",
-		TableFilter:        "226",
-		TableClipboard:     "120",
-		SQLHistoryTitle:    "205",
-		SQLHistoryCount:    "240",
-		SQLHistorySelected: "255",
-		SQLHistoryNormal:   "252",
-		SQLHistoryBorder:   "63",
-		JSONKey:            "39",
-		JSONValue:          "228",
-		JSONType:           "241",
-		DebugSection:       "#7AA2F7",
-		DebugLog:           "#C0C0C0",
-		DebugSelected:      "#3E3EF2",
-		DebugFocus:         "#00FF00",
+		Primary:         "#7D56F4",
+		Secondary:       "#808080",
+		Background:      "#1a1a1a",
+		Foreground:      "#FFFFFF",
+		Text:            "255",
+		HelpText:        "#626262",
+		GhostText:       "#666666",
+		StatusText:      "#AAAAAA",
+		InputBackground: "235",
+		BorderActive:    "#7D56F4",
+		BorderInactive:  "#4A4A4A",
+		BorderNormal:    "238",
+		// SelectionBg:        "#7D56F4",
+		SelectionBg:            "#5f00ff",
+		SelectionFg:            "#FFFFFF",
+		StatusConnected:        "#00FF00",
+		StatusDisconnected:     "#FF0000",
+		StatusConnecting:       "#FFFF00",
+		StatusError:            "#FF6666",
+		CommandBg:              "#7D56F4",
+		CommandFg:              "#FAFAFA",
+		PopupBg:                "#1a1a1a",
+		PopupBorder:            "62",
+		OverlayBg:              "#000000",
+		StatusLineBg:           "#2C2C2C",
+		StatusLineFg:           "#FFFFFF",
+		SchemaTitle:            "205",
+		SchemaSection:          "39",
+		SchemaField:            "252",
+		SchemaColumnName:       "228",
+		SchemaType:             "141",
+		SchemaPrimaryKey:       "205",
+		SchemaForeignKey:       "214",
+		SchemaEmpty:            "241",
+		SchemaLoading:          "241",
+		CellPendingEdit:        "220",
+		TableFilter:            "226",
+		TableClipboard:         "120",
+		TableSeparator:         "238",
+		TableDeletedSelectedBg: "1",
+		TableDeletedSelectedFg: "15",
+		ModeIndicatorFg:        "0",
+		ModeNormalBg:           "12",
+		ModeVisualBg:           "13",
+		ModeInsertBg:           "10",
+		PassphraseKeyInfoFg:    "241",
+		SQLHistoryTitle:        "205",
+		SQLHistoryCount:        "240",
+		SQLHistorySelected:     "255",
+		SQLHistoryNormal:       "252",
+		SQLHistoryBorder:       "63",
+		JSONKey:                "39",
+		JSONValue:              "228",
+		JSONType:               "241",
+		DebugSection:           "#7AA2F7",
+		DebugLog:               "#C0C0C0",
+		DebugSelected:          "#3E3EF2",
+		DebugFocus:             "#00FF00",
 	}
 }
 
@@ -251,6 +270,30 @@ func (c *ColorSchemeConfig) MergeWithDefaults() ColorSchemeConfig {
 	}
 	if result.TableClipboard == "" {
 		result.TableClipboard = defaults.TableClipboard
+	}
+	if result.TableSeparator == "" {
+		result.TableSeparator = defaults.TableSeparator
+	}
+	if result.TableDeletedSelectedBg == "" {
+		result.TableDeletedSelectedBg = defaults.TableDeletedSelectedBg
+	}
+	if result.TableDeletedSelectedFg == "" {
+		result.TableDeletedSelectedFg = defaults.TableDeletedSelectedFg
+	}
+	if result.ModeIndicatorFg == "" {
+		result.ModeIndicatorFg = defaults.ModeIndicatorFg
+	}
+	if result.ModeNormalBg == "" {
+		result.ModeNormalBg = defaults.ModeNormalBg
+	}
+	if result.ModeVisualBg == "" {
+		result.ModeVisualBg = defaults.ModeVisualBg
+	}
+	if result.ModeInsertBg == "" {
+		result.ModeInsertBg = defaults.ModeInsertBg
+	}
+	if result.PassphraseKeyInfoFg == "" {
+		result.PassphraseKeyInfoFg = defaults.PassphraseKeyInfoFg
 	}
 	if result.SQLHistoryTitle == "" {
 		result.SQLHistoryTitle = defaults.SQLHistoryTitle

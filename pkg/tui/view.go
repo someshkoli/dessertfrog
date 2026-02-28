@@ -44,7 +44,7 @@ func (m Model) View() string {
 		} else {
 			// Show help text with 's' to view/edit query
 			var helpText string
-			if m.cellEditBufferCount > 0 || m.deletedRowsCount > 0 {
+			if m.cellEditBufferCount > 0 || len(m.currentDeletedRows()) > 0 {
 				// Show :w hint when there are pending edits or deletions
 				if m.isCustomQuery {
 					helpText = "i: edit | dd: delete | :w: save all | v: view | y: copy | Y: row | /: filter | c: connections | hjkl: move | s: query | q: quit | o: back"

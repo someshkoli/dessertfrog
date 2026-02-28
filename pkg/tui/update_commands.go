@@ -65,6 +65,35 @@ func fetchTableData(drv driver.Driver, schemaName, tableName string, offset int)
 	}
 }
 
+// fetchTableDataSorted fetches table data ordered by a specific column
+func fetchTableDataSorted(drv driver.Driver, schemaName, tableName, sortCol string, order SortOrder, offset int) tea.Cmd {
+	return func() tea.Msg {
+		ctx := context.Background()
+
+		dir := "ASC"
+		if order == SortDesc {
+			dir = "DESC"
+		}
+
+		query := fmt.Sprintf(`SELECT * FROM "%s"."%s" ORDER BY "%s" %s LIMIT 500 OFFSET %d`,
+			schemaName, tableName, sortCol, dir, offset)
+
+		queryStart := time.Now()
+		columns, rows, _, fetchTime, err := drv.ExecuteQuery(ctx, query)
+		queryTime := time.Since(queryStart)
+		if err != nil {
+			return tableDataLoadFailedMsg{err: err}
+		}
+
+		return tableDataLoadedMsg{
+			columns:   columns,
+			rows:      rows,
+			queryTime: queryTime.String(),
+			fetchTime: fetchTime.String(),
+		}
+	}
+}
+
 // fetchTableSchema fetches the full schema for a table (including primary keys)
 func fetchTableSchema(drv driver.Driver, schemaName, tableName string) tea.Cmd {
 	return func() tea.Msg {

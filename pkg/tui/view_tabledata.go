@@ -70,12 +70,13 @@ func (m Model) renderTableDataView() string {
 		}
 	}
 
-	// Calculate which columns to show based on horizontal scroll and available width
-	// Account for border (2 chars) and padding (2 chars) = 4 chars total
+	// contentWidth is the outer width passed to lipgloss (border 2 + padding 2 = 4 overhead).
+	// innerWidth is the actual wrappable area inside the container.
 	contentWidth := availableWidth - 4
-	if contentWidth < 20 {
-		contentWidth = 20
+	if contentWidth < 24 {
+		contentWidth = 24
 	}
+	innerWidth := contentWidth - 4
 
 	visibleColumns := []int{}
 	totalWidth := 0
@@ -84,39 +85,32 @@ func (m Model) renderTableDataView() string {
 	hasMoreRight := false
 
 	for i := range m.tableColumns {
-		columnWidth := columnWidths[i] + 3 // +3 for " │ " separator
+		columnWidth := columnWidths[i] + 3 // +3 for " | " separator
 
-		// Check if this column is within the visible horizontal scroll window
 		if cumulativeX+columnWidth > m.tableDataScrollX {
-			// This column starts within or after the scroll position
-			if totalWidth+columnWidth <= contentWidth {
+			if totalWidth+columnWidth <= innerWidth {
 				visibleColumns = append(visibleColumns, i)
 				totalWidth += columnWidth
 			} else {
-				// Can't fit more columns
 				hasMoreRight = true
 				break
 			}
 		} else {
-			// This column is before the scroll position
 			hasMoreLeft = true
 		}
 
 		cumulativeX += columnWidth
 	}
 
-	// Check if there are more columns to the right
 	if len(visibleColumns) > 0 && visibleColumns[len(visibleColumns)-1] < len(m.tableColumns)-1 {
 		hasMoreRight = true
 	}
 
-	// If no columns are visible (scrolled too far), reset scroll
 	if len(visibleColumns) == 0 {
-		// Show first columns that fit
 		totalWidth = 0
 		for i := range m.tableColumns {
 			columnWidth := columnWidths[i] + 3
-			if totalWidth+columnWidth <= contentWidth {
+			if totalWidth+columnWidth <= innerWidth {
 				visibleColumns = append(visibleColumns, i)
 				totalWidth += columnWidth
 			} else {
@@ -126,18 +120,22 @@ func (m Model) renderTableDataView() string {
 		}
 	}
 
+	sep := m.styles.TableSeparatorStyle.Render(" │ ")
+
 	// Build header row
 	var content strings.Builder
 	for _, colIdx := range visibleColumns {
-		content.WriteString(fmt.Sprintf("%-*s │ ", columnWidths[colIdx], truncate(m.tableColumns[colIdx], columnWidths[colIdx])))
+		content.WriteString(fmt.Sprintf("%-*s", columnWidths[colIdx], truncate(m.tableColumns[colIdx], columnWidths[colIdx])))
+		content.WriteString(sep)
 	}
 	content.WriteString("\n")
 
 	// Add separator
+	var sepLine strings.Builder
 	for _, colIdx := range visibleColumns {
-		content.WriteString(strings.Repeat("─", columnWidths[colIdx]))
-		content.WriteString("─┼─")
+		sepLine.WriteString(strings.Repeat("─", columnWidths[colIdx]+3))
 	}
+	content.WriteString(m.styles.TableSeparatorStyle.Render(sepLine.String()))
 	content.WriteString("\n")
 
 	// Calculate visible rows based on vertical scroll
@@ -155,35 +153,32 @@ func (m Model) renderTableDataView() string {
 	// Render data rows
 	for rowIdx := startRow; rowIdx < endRow; rowIdx++ {
 		row := m.tableData[rowIdx]
-		isDeleted := m.deletedRows[rowIdx]
+		isDeleted := m.currentDeletedRows()[rowIdx]
 
 		for _, colIdx := range visibleColumns {
-			var cellText string
+			var cellContent string
 			if colIdx < len(row) {
-				cellText = fmt.Sprintf("%-*s │ ", columnWidths[colIdx], truncate(row[colIdx], columnWidths[colIdx]))
+				cellContent = fmt.Sprintf("%-*s", columnWidths[colIdx], truncate(row[colIdx], columnWidths[colIdx]))
 			} else {
-				cellText = fmt.Sprintf("%-*s │ ", columnWidths[colIdx], "")
+				cellContent = fmt.Sprintf("%-*s", columnWidths[colIdx], "")
 			}
 
-			// Check if this cell has pending edits
 			bufferKey := fmt.Sprintf("%d:%d", rowIdx, colIdx)
-			hasPendingEdit := false
-			if _, exists := m.cellEditBuffer[bufferKey]; exists {
-				hasPendingEdit = true
-			}
+			_, hasPendingEdit := m.cellEditBuffer[bufferKey]
 
-			// Apply styling priority: deleted > selected > pending edit
-			if isDeleted {
-				// Show deleted row indicator (red with strikethrough)
-				cellText = m.styles.TableDeletedRowStyle.Render(cellText)
-			} else if rowIdx == m.selectedDataRow && colIdx == m.selectedDataCol {
-				cellText = m.styles.SelectedRowStyle.Render(cellText)
+			isSelected := rowIdx == m.selectedDataRow && colIdx == m.selectedDataCol
+			if isDeleted && isSelected {
+				content.WriteString(m.styles.TableDeletedRowSelectedStyle.Render(cellContent))
+			} else if isDeleted {
+				content.WriteString(m.styles.TableDeletedRowStyle.Render(cellContent))
+			} else if isSelected {
+				content.WriteString(m.styles.SelectedRowStyle.Render(cellContent))
 			} else if hasPendingEdit {
-				// Show pending edit indicator (yellow/warning color)
-				cellText = m.styles.CellPendingEditStyle.Render(cellText)
+				content.WriteString(m.styles.CellPendingEditStyle.Render(cellContent))
+			} else {
+				content.WriteString(cellContent)
 			}
-
-			content.WriteString(cellText)
+			content.WriteString(sep)
 		}
 		content.WriteString("\n")
 	}
@@ -239,6 +234,15 @@ func (m Model) renderTableDataTitle() string {
 	// Add clipboard notification if present
 	if m.clipboardMessage != "" {
 		title += "  " + m.styles.TableClipboardStyle.Render(m.clipboardMessage)
+	}
+
+	// Add sort indicator if active
+	if sort := m.currentSort(); sort.order != SortNone {
+		dir := "↑"
+		if sort.order == SortDesc {
+			dir = "↓"
+		}
+		title += "  " + m.styles.TableFilterStyle.Render(fmt.Sprintf("[Sort: %s %s]", sort.column, dir))
 	}
 
 	// Add filter indicator if active

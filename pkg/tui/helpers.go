@@ -10,6 +10,9 @@ import (
 
 // truncate truncates a string to the specified length
 func truncate(s string, maxLen int) string {
+	s = strings.ReplaceAll(s, "\r\n", `\n`)
+	s = strings.ReplaceAll(s, "\r", `\n`)
+	s = strings.ReplaceAll(s, "\n", `\n`)
 	if len(s) <= maxLen {
 		return s
 	}

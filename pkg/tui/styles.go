@@ -64,9 +64,11 @@ type Styles struct {
 	CellPendingEditStyle  lipgloss.Style
 
 	// Table data styles
-	TableFilterStyle     lipgloss.Style
-	TableClipboardStyle  lipgloss.Style
-	TableDeletedRowStyle lipgloss.Style
+	TableFilterStyle             lipgloss.Style
+	TableClipboardStyle          lipgloss.Style
+	TableSeparatorStyle          lipgloss.Style
+	TableDeletedRowStyle         lipgloss.Style
+	TableDeletedRowSelectedStyle lipgloss.Style
 	TableNormalModeStyle lipgloss.Style
 	TableVisualModeStyle lipgloss.Style
 
@@ -135,7 +137,7 @@ func NewStyles(scheme config.ColorSchemeConfig) Styles {
 		// Border styles
 		BorderStyle: lipgloss.NewStyle().
 			Border(lipgloss.RoundedBorder()).
-			BorderForeground(lipgloss.Color(scheme.BorderNormal)).
+			BorderForeground(lipgloss.Color(scheme.TableSeparator)).
 			Padding(0, 1),
 
 		ActiveBorderStyle: lipgloss.NewStyle().
@@ -295,18 +297,27 @@ func NewStyles(scheme config.ColorSchemeConfig) Styles {
 			Foreground(lipgloss.Color(scheme.TableClipboard)).
 			Bold(true),
 
+		TableSeparatorStyle: lipgloss.NewStyle().
+			Foreground(lipgloss.Color(scheme.TableSeparator)),
+
 		TableDeletedRowStyle: lipgloss.NewStyle().
 			Foreground(lipgloss.Color(scheme.StatusError)).
 			Strikethrough(true),
 
+		TableDeletedRowSelectedStyle: lipgloss.NewStyle().
+			Background(lipgloss.Color(scheme.TableDeletedSelectedBg)).
+			Foreground(lipgloss.Color(scheme.TableDeletedSelectedFg)).
+			Strikethrough(true).
+			Bold(true),
+
 		TableNormalModeStyle: lipgloss.NewStyle().
-			Background(lipgloss.Color("12")). // Blue background for normal mode
-			Foreground(lipgloss.Color("0")).  // Black text
+			Background(lipgloss.Color(scheme.ModeNormalBg)).
+			Foreground(lipgloss.Color(scheme.ModeIndicatorFg)).
 			Bold(true),
 
 		TableVisualModeStyle: lipgloss.NewStyle().
-			Background(lipgloss.Color("13")). // Magenta background for visual mode
-			Foreground(lipgloss.Color("0")).  // Black text
+			Background(lipgloss.Color(scheme.ModeVisualBg)).
+			Foreground(lipgloss.Color(scheme.ModeIndicatorFg)).
 			Bold(true),
 
 		// SQL history styles
@@ -415,13 +426,13 @@ func NewStyles(scheme config.ColorSchemeConfig) Styles {
 			Foreground(lipgloss.Color(scheme.Foreground)),
 
 		ConnManagerInsertModeStyle: lipgloss.NewStyle().
-			Background(lipgloss.Color("10")). // Green background for insert mode
-			Foreground(lipgloss.Color("0")).  // Black text
+			Background(lipgloss.Color(scheme.ModeInsertBg)).
+			Foreground(lipgloss.Color(scheme.ModeIndicatorFg)).
 			Bold(true),
 
 		ConnManagerNormalModeStyle: lipgloss.NewStyle().
-			Background(lipgloss.Color("12")). // Blue background for normal mode
-			Foreground(lipgloss.Color("0")).  // Black text
+			Background(lipgloss.Color(scheme.ModeNormalBg)).
+			Foreground(lipgloss.Color(scheme.ModeIndicatorFg)).
 			Bold(true),
 
 		ScrollIndicatorStyle: lipgloss.NewStyle().
@@ -452,7 +463,7 @@ func NewStyles(scheme config.ColorSchemeConfig) Styles {
 			Padding(0, 1),
 
 		PassphraseKeyInfoStyle: lipgloss.NewStyle().
-			Foreground(lipgloss.Color("241")).
+			Foreground(lipgloss.Color(scheme.PassphraseKeyInfoFg)).
 			Italic(true),
 
 		// Text input styles

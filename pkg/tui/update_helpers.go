@@ -60,9 +60,10 @@ func (m Model) adjustTableDataHorizontalScroll() Model {
 	selectedColWidth := columnWidths[m.selectedDataCol] + 3 // Include separator
 	selectedColEnd := selectedColStart + selectedColWidth
 
-	availableWidth := m.width - 12
-	if availableWidth < 40 {
-		availableWidth = 40
+	// Match view's innerWidth: (m.width - 3) - 4 (contentWidth overhead) - 4 (border+padding)
+	availableWidth := m.width - 11
+	if availableWidth < 20 {
+		availableWidth = 20
 	}
 
 	// Adjust scroll to show selected column

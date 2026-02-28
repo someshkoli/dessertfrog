@@ -40,7 +40,7 @@ func (m Model) renderStatusLine() string {
 	// Add timing info if available (when viewing table data)
 	var timingInfo string
 	if m.tableViewMode && (m.queryTime != "" || m.fetchTime != "") {
-		timingInfo = fmt.Sprintf("  query: %s | fetch: %s", m.queryTime, m.fetchTime)
+		timingInfo = fmt.Sprintf("  query: %s | fetch: %s | rows: %d", m.queryTime, m.fetchTime, len(m.tableData))
 	}
 
 	// Calculate available width for content (account for screen border and padding)
