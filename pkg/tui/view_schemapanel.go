@@ -23,8 +23,8 @@ func (m Model) renderSchemaPanel(width, availableHeight int) string {
 
 	// Determine which tables to use (filtered or all)
 	displayTables := m.tables
-	if m.inlineSearchMode && m.inlineSearchQuery != "" {
-		displayTables = filterTables(m.tables, m.inlineSearchQuery)
+	if m.inlineSearchMode && m.inlineSearch.Value() != "" {
+		displayTables = filterTables(m.tables, m.inlineSearch.Value())
 	}
 
 	if len(displayTables) == 0 || m.selectedRow >= len(displayTables) {
@@ -61,6 +61,14 @@ func (m Model) renderSchemaPanel(width, availableHeight int) string {
 		// Show basic info from TableSchema (just column count)
 		infoLines := m.renderBasicSchemaInfoLines(selectedTable)
 		allLines = append(allLines, infoLines...)
+	}
+
+	// When schema panel is focused and search is active, filter schema lines
+	if m.schemaPanelFocused && m.inlineSearchMode && m.schemaSearch.Value() != "" {
+		allLines = filterSchemaLines(allLines, m.schemaSearch.Value())
+		if len(allLines) == 0 {
+			allLines = append(allLines, m.styles.SchemaEmptyStyle.Render("No matches"))
+		}
 	}
 
 	// Bound selected index (ensure we have at least one line)
@@ -280,6 +288,48 @@ func (m Model) updateSchemaPanelLineCount() Model {
 
 	m.schemaPanelLineCount = lineCount
 	return m
+}
+
+// filterSchemaLines filters rendered schema lines against a query.
+// Section headers (non-indented) are preserved when any line in their section matches.
+// Empty separator lines are always preserved.
+func filterSchemaLines(lines []string, query string) []string {
+	if query == "" {
+		return lines
+	}
+
+	var result []string
+	var pendingHeader string // last section header waiting to see if its section has matches
+
+	for _, line := range lines {
+		plain := strings.TrimSpace(stripANSI(line))
+
+		// Always keep empty lines
+		if plain == "" {
+			if pendingHeader != "" {
+				// Don't emit the header yet; keep the empty line only if we already emitted the header
+			}
+			result = append(result, line)
+			continue
+		}
+
+		// Detect section headers (non-indented, non-empty lines)
+		if !strings.HasPrefix(stripANSI(line), " ") {
+			pendingHeader = line
+			continue
+		}
+
+		// Content line — check if it matches
+		if fuzzyMatch(query, plain) {
+			if pendingHeader != "" {
+				result = append(result, pendingHeader)
+				pendingHeader = ""
+			}
+			result = append(result, line)
+		}
+	}
+
+	return result
 }
 
 // stripANSI removes ANSI escape codes from a string to get the actual visible length

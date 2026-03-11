@@ -482,5 +482,8 @@ func (m Model) handleWindowSizeMsg(msg tea.WindowSizeMsg) (tea.Model, tea.Cmd) {
 	m.width = msg.Width
 	m.height = msg.Height
 	m.sqlQueryInput.Width = msg.Width - 20
+	m.inlineSearch.SetWidth(msg.Width - 18)
+	m.schemaSearch.SetWidth(msg.Width - 18)
+	m.tableFilterSearch.SetWidth(msg.Width - 18)
 	return m, nil
 }

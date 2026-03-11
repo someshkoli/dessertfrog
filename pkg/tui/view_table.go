@@ -18,9 +18,9 @@ func (m Model) renderTablesContent(visibleRows, contentWidth int) string {
 
 	// Determine which tables to display
 	displayTables := m.tables
-	if m.inlineSearchMode && m.inlineSearchQuery != "" {
+	if m.inlineSearchMode && m.inlineSearch.Value() != "" {
 		// Filter tables based on inline search query
-		displayTables = filterTables(m.tables, m.inlineSearchQuery)
+		displayTables = filterTables(m.tables, m.inlineSearch.Value())
 		if len(displayTables) == 0 {
 			return "No tables match filter"
 		}
@@ -125,8 +125,8 @@ func (m Model) renderTablesBox(availableWidth, availableHeight int) string {
 
 	// Determine which tables to use for scroll calculations
 	displayTables := m.tables
-	if m.inlineSearchMode && m.inlineSearchQuery != "" {
-		displayTables = filterTables(m.tables, m.inlineSearchQuery)
+	if m.inlineSearchMode && m.inlineSearch.Value() != "" {
+		displayTables = filterTables(m.tables, m.inlineSearch.Value())
 	}
 
 	// Adjust scroll offset to keep selected row visible

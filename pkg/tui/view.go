@@ -26,10 +26,10 @@ func (m Model) View() string {
 		tableDataView := m.renderTableDataView()
 		mainContent += tableDataView
 
-		// Inline search bar for content filtering
+		// Filter input bar for content filtering
 		if m.inlineSearchMode {
-			searchBar := m.renderInlineSearchBar()
-			bottomBar = searchBar + "\n" + m.styles.HelpStyle.Render("Enter: apply filter | Esc: cancel")
+			filterInput := m.tableFilterSearch.View()
+			bottomBar = filterInput + "\n" + m.styles.HelpStyle.Render("Enter: apply filter | Esc: cancel")
 		} else if m.commandMode {
 			cmdLine := m.styles.CommandLineStyle.Render(m.commandBuffer + "█")
 			bottomBar = cmdLine + "\n" + m.styles.HelpStyle.Render("Enter: execute | Esc: cancel")
@@ -243,7 +243,7 @@ func (m Model) View() string {
 	// Account for inline search bar in table view mode
 	extraLines := 0
 	if m.tableViewMode && m.inlineSearchMode {
-		extraLines = 2 // Search bar + help text
+		extraLines = 2 // Filter bar + help text
 	}
 
 	contentHeight := m.height - 7 - extraLines // Account for borders, help, status, spacing, and search bar
@@ -336,22 +336,8 @@ func (m Model) View() string {
 
 // renderInlineSearchBar renders the inline search bar on the main view
 func (m Model) renderInlineSearchBar() string {
-	searchPrompt := "Filter: "
-	cursorChar := "█"
-
-	// Build input with ghost text suggestion
-	var inputText string
-	if m.inlineSearchSuggestion != "" {
-		inputText = searchPrompt + m.inlineSearchQuery + m.styles.GhostTextStyle.Render(m.inlineSearchSuggestion) + cursorChar
-	} else {
-		inputText = searchPrompt + m.inlineSearchQuery + cursorChar
-	}
-
-	// Choose style based on focus - active when not in schema panel
-	inputStyle := m.styles.ActiveSearchInputStyle
 	if m.schemaPanelFocused {
-		inputStyle = m.styles.InactiveSearchInputStyle
+		return m.schemaSearch.View()
 	}
-
-	return inputStyle.Render(inputText)
+	return m.inlineSearch.View()
 }

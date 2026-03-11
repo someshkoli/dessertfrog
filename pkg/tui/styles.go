@@ -121,6 +121,9 @@ type Styles struct {
 	// Text input styles
 	TextInputStyle            lipgloss.Style
 	TextInputPlaceholderStyle lipgloss.Style
+
+	// Inline search input style
+	InlineSearchInputStyle lipgloss.Style
 }
 
 // NewStyles creates a new Styles instance from a color scheme
@@ -474,5 +477,11 @@ func NewStyles(scheme config.ColorSchemeConfig) Styles {
 		TextInputPlaceholderStyle: lipgloss.NewStyle().
 			Foreground(lipgloss.Color(scheme.HelpText)).
 			Background(lipgloss.Color(scheme.InputBackground)),
+
+		// Inline search input style
+		InlineSearchInputStyle: lipgloss.NewStyle().
+			Border(lipgloss.RoundedBorder()).
+			BorderForeground(lipgloss.Color(scheme.BorderActive)).
+			Padding(0, 1),
 	}
 }

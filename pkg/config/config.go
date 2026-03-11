@@ -33,7 +33,6 @@ func LoadConfig(path string) (*Config, error) {
 
 	// If file doesn't exist, return empty config (use defaults)
 	if _, err := os.Stat(path); os.IsNotExist(err) {
-		fmt.Println("sk file not foundn", path)
 		return &Config{}, nil
 	}
 

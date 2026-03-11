@@ -47,7 +47,7 @@ func (m Model) renderTableDataView() string {
 	}
 
 	if m.inlineSearchMode {
-		availableHeight = availableHeight - 2 // Screen padding + border
+		availableHeight = availableHeight - 2
 	}
 
 	// Column widths - calculate based on content
@@ -139,7 +139,8 @@ func (m Model) renderTableDataView() string {
 	content.WriteString("\n")
 
 	// Calculate visible rows based on vertical scroll
-	visibleRows := availableHeight - 2 // Subtract header and separator
+	// Subtract header (1) + separator (1) + blank line (1) + scroll info line (1) = 4
+	visibleRows := availableHeight - 2
 	if visibleRows < 1 {
 		visibleRows = 1
 	}

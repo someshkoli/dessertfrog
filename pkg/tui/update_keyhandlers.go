@@ -73,8 +73,11 @@ func (m Model) handleKeyPress(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		return m.handleConnectionInputKeys(msg)
 	}
 
-	// Handle inline search mode
+	// Handle inline search mode (table data filter or table list filter)
 	if m.inlineSearchMode {
+		if m.tableViewMode {
+			return m.handleInlineSearchModeTableKeys(msg)
+		}
 		return m.handleInlineSearchModeKeys(msg)
 	}
 
@@ -284,23 +287,18 @@ func (m Model) handleCommandModeKeys(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 
 // handleInlineSearchModeKeys handles keyboard input in inline search mode
 func (m Model) handleInlineSearchModeKeys(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
-	// Check if we're in table view mode (content filtering) or normal mode (table filtering)
-	inTableView := m.tableViewMode
+	tableQuery := m.inlineSearch.Value()
 
 	switch msg.String() {
 	case "enter":
-		if inTableView {
-			// Save the filter and close search mode (filter already applied in real-time)
-			m.tableContentFilter = m.inlineSearchQuery
-			m.inlineSearchMode = false
-			m.inlineSearchQuery = ""
-			return m, nil
+		if m.schemaPanelFocused {
+			// Nothing to do on enter in schema panel search
+			break
 		}
-
 		// Open table view for selected table (normal mode)
 		displayTables := m.tables
-		if m.inlineSearchQuery != "" {
-			displayTables = filterTables(m.tables, m.inlineSearchQuery)
+		if tableQuery != "" {
+			displayTables = filterTables(m.tables, tableQuery)
 		}
 
 		if len(displayTables) > 0 && m.selectedRow < len(displayTables) {
@@ -310,11 +308,12 @@ func (m Model) handleInlineSearchModeKeys(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 			m.tableDataLoading = true
 			m.tableDataError = ""
 			m.tableDataOffset = 0
-			// Close inline search mode
 			m.inlineSearchMode = false
-			m.inlineSearchQuery = ""
-			m.inlineSearchSuggestion = ""
-			// Fetch both data and schema in parallel
+			m.inlineSearch.SetValue("")
+			m.inlineSearch.SetSuggestion("")
+			m.inlineSearch.Blur()
+			m.schemaSearch.SetValue("")
+			m.schemaSearch.Blur()
 			return m, tea.Batch(
 				fetchTableData(m.driver, selectedTable.SchemaName, selectedTable.TableName, 0),
 				fetchTableSchema(m.driver, selectedTable.SchemaName, selectedTable.TableName),
@@ -325,150 +324,107 @@ func (m Model) handleInlineSearchModeKeys(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		m.inlineSearchMode = false
 
 	case "esc":
-		// Clear filter and exit inline search mode
 		m.inlineSearchMode = false
-		m.inlineSearchQuery = ""
-		m.inlineSearchSuggestion = ""
-		if !inTableView {
-			m.selectedRow = 0
-			m.scrollOffset = 0
-		}
+		m.inlineSearch.SetValue("")
+		m.inlineSearch.SetSuggestion("")
+		m.inlineSearch.Blur()
+		m.schemaSearch.SetValue("")
+		m.schemaSearch.Blur()
+		m.schemaPanelFocused = false
+		m.selectedRow = 0
+		m.scrollOffset = 0
 
 	case "tab":
-		if !inTableView {
-			// On home screen: switch between table list and schema panel
-			// If there's an autocomplete suggestion and schema panel is not focused, accept it
-			if m.inlineSearchSuggestion != "" && !m.schemaPanelFocused {
-				m.inlineSearchQuery += m.inlineSearchSuggestion
-				m.inlineSearchSuggestion = getAutocompleteSuggestion(m.inlineSearchQuery)
-			} else {
-				// Otherwise, switch focus to schema panel
-				m.schemaPanelFocused = !m.schemaPanelFocused
-			}
+		suggestion := getAutocompleteSuggestion(tableQuery)
+		if suggestion != "" && !m.schemaPanelFocused {
+			newQuery := tableQuery + suggestion
+			m.inlineSearch.SetValue(newQuery)
+			m.inlineSearch.CursorEnd()
+			m.inlineSearch.SetSuggestion("")
 		} else {
-			// In table view: accept autocomplete suggestion
-			if m.inlineSearchSuggestion != "" {
-				m.inlineSearchQuery += m.inlineSearchSuggestion
-				m.inlineSearchSuggestion = getAutocompleteSuggestion(m.inlineSearchQuery)
-			}
-		}
-
-	case "backspace":
-		// Don't modify filter if schema panel is focused (unless in table view)
-		if len(m.inlineSearchQuery) > 0 && (!m.schemaPanelFocused || inTableView) {
-			m.inlineSearchQuery = m.inlineSearchQuery[:len(m.inlineSearchQuery)-1]
-			m.inlineSearchSuggestion = getAutocompleteSuggestion(m.inlineSearchQuery)
-
-			if inTableView {
-				// Apply filter in real-time as user types (removes characters)
-				m.tableData = filterTableData(m.allTableData, m.inlineSearchQuery)
-				m.selectedDataRow = 0
-				m.tableDataScrollY = 0
+			m.schemaPanelFocused = !m.schemaPanelFocused
+			if m.schemaPanelFocused {
+				// Switch to schema search: blur table input, focus schema input
+				m.inlineSearch.Blur()
+				m.schemaSearch.Focus()
+				m.schemaPanelSelected = 0
+				m.schemaPanelScroll = 0
 			} else {
-				m.selectedRow = 0
-				m.scrollOffset = 0
-				// Trigger schema fetch for first filtered table
-				displayTables := m.tables
-				if m.inlineSearchQuery != "" {
-					displayTables = filterTables(m.tables, m.inlineSearchQuery)
-				}
-				if len(displayTables) > 0 {
-					m.schemaInfoLoading = true
-					m.schemaInfo = nil
-					return m, fetchSchemaInfo(m.driver, displayTables[0].SchemaName, displayTables[0].TableName)
-				}
+				// Switch back to table search
+				m.schemaSearch.Blur()
+				m.inlineSearch.Focus()
 			}
 		}
 
 	case "down":
-		if !inTableView && m.schemaPanelFocused {
-			// Navigate within schema panel
+		if m.schemaPanelFocused {
 			if m.schemaPanelLineCount > 0 && m.schemaPanelSelected < m.schemaPanelLineCount-1 {
 				m.schemaPanelSelected++
 			}
 		} else {
-			// Move down in filtered table list
 			displayTables := m.tables
-			if m.inlineSearchQuery != "" {
-				displayTables = filterTables(m.tables, m.inlineSearchQuery)
+			if tableQuery != "" {
+				displayTables = filterTables(m.tables, tableQuery)
 			}
 			if m.selectedRow < len(displayTables)-1 {
 				m.selectedRow++
-				// Trigger async schema info fetch for new table
-				if !inTableView {
-					m.schemaInfoLoading = true
-					m.schemaInfo = nil
-					selectedTable := displayTables[m.selectedRow]
-					return m, fetchSchemaInfo(m.driver, selectedTable.SchemaName, selectedTable.TableName)
-				}
+				m.schemaInfoLoading = true
+				m.schemaInfo = nil
+				selectedTable := displayTables[m.selectedRow]
+				return m, fetchSchemaInfo(m.driver, selectedTable.SchemaName, selectedTable.TableName)
 			}
 		}
 
 	case "up":
-		if !inTableView && m.schemaPanelFocused {
-			// Navigate within schema panel
+		if m.schemaPanelFocused {
 			if m.schemaPanelSelected > 0 {
 				m.schemaPanelSelected--
 			}
 		} else {
-			// Move up in filtered table list
 			if m.selectedRow > 0 {
 				m.selectedRow--
-				// Trigger async schema info fetch for new table
 				displayTables := m.tables
-				if m.inlineSearchQuery != "" {
-					displayTables = filterTables(m.tables, m.inlineSearchQuery)
+				if tableQuery != "" {
+					displayTables = filterTables(m.tables, tableQuery)
 				}
-				if !inTableView {
-					m.schemaInfoLoading = true
-					m.schemaInfo = nil
-					selectedTable := displayTables[m.selectedRow]
-					return m, fetchSchemaInfo(m.driver, selectedTable.SchemaName, selectedTable.TableName)
-				}
+				m.schemaInfoLoading = true
+				m.schemaInfo = nil
+				selectedTable := displayTables[m.selectedRow]
+				return m, fetchSchemaInfo(m.driver, selectedTable.SchemaName, selectedTable.TableName)
 			}
-		}
-
-	case "left":
-		// h/left: scroll left in schema panel (no-op for now, could be used for horizontal scroll)
-		// Or navigate to table list if in schema panel
-		if !inTableView && m.schemaPanelFocused {
-			// Could implement horizontal scroll here if needed
-		}
-
-	case "right":
-		// l/right: scroll right in schema panel (no-op for now)
-		// Or could be used for expanding/collapsing items
-		if !inTableView && m.schemaPanelFocused {
-			// Could implement horizontal scroll here if needed
 		}
 
 	case "ctrl+c":
 		return m, tea.Quit
 
 	default:
-		// Append to inline search query (only single characters)
-		// Don't append if schema panel is focused (navigating schema)
-		if len(msg.String()) == 1 && (!m.schemaPanelFocused || inTableView) {
-			m.inlineSearchQuery += msg.String()
-			m.inlineSearchSuggestion = getAutocompleteSuggestion(m.inlineSearchQuery)
-
-			if inTableView {
-				// Apply filter in real-time as user types
-				m.tableData = filterTableData(m.allTableData, m.inlineSearchQuery)
-				m.selectedDataRow = 0
-				m.tableDataScrollY = 0
-			} else {
-				m.selectedRow = 0
-				m.scrollOffset = 0
-				// Trigger schema fetch for first filtered table
-				displayTables := filterTables(m.tables, m.inlineSearchQuery)
-				if len(displayTables) > 0 {
-					m.schemaInfoLoading = true
-					m.schemaInfo = nil
-					return m, fetchSchemaInfo(m.driver, displayTables[0].SchemaName, displayTables[0].TableName)
-				}
+		if m.schemaPanelFocused {
+			// Route keypresses to schema search
+			schemaQuery := m.schemaSearch.Value()
+			var cmd tea.Cmd
+			m.schemaSearch, cmd = m.schemaSearch.Update(msg)
+			if m.schemaSearch.Value() != schemaQuery {
+				m.schemaPanelSelected = 0
+				m.schemaPanelScroll = 0
+			}
+			return m, cmd
+		}
+		// Route keypresses to table list search
+		var cmd tea.Cmd
+		m.inlineSearch, cmd = m.inlineSearch.Update(msg)
+		newQuery := m.inlineSearch.Value()
+		if newQuery != tableQuery {
+			m.inlineSearch.SetSuggestion(getAutocompleteSuggestion(newQuery))
+			m.selectedRow = 0
+			m.scrollOffset = 0
+			displayTables := filterTables(m.tables, newQuery)
+			if len(displayTables) > 0 {
+				m.schemaInfoLoading = true
+				m.schemaInfo = nil
+				return m, tea.Batch(cmd, fetchSchemaInfo(m.driver, displayTables[0].SchemaName, displayTables[0].TableName))
 			}
 		}
+		return m, cmd
 	}
 
 	return m, nil
@@ -531,8 +487,18 @@ func (m Model) handleNormalModeKeys(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 
 		case CommandInlineSearch:
 			m.inlineSearchMode = true
-			m.inlineSearchQuery = ""
-			m.inlineSearchSuggestion = ""
+			if m.schemaPanelFocused {
+				// Schema panel is focused: open schema search, leave table search alone
+				m.schemaSearch.SetValue("")
+				m.schemaSearch.Focus()
+				m.inlineSearch.Blur()
+			} else {
+				m.inlineSearch.SetValue("")
+				m.inlineSearch.SetSuggestion("")
+				m.inlineSearch.Focus()
+				m.schemaSearch.SetValue("")
+				m.schemaSearch.Blur()
+			}
 
 		case CommandOpenSearch:
 			m.searchMode = true
@@ -799,7 +765,9 @@ func (m Model) handleTableViewModeKeys(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 
 		case CommandFilterContent:
 			m.inlineSearchMode = true
-			m.inlineSearchQuery = m.tableContentFilter
+			m.tableFilterSearch.SetValue(m.tableContentFilter)
+			m.tableFilterSearch.CursorEnd()
+			m.tableFilterSearch.Focus()
 
 		case CommandOpenConnectionManager:
 			// Open connection manager popup
@@ -1244,6 +1212,42 @@ func (m Model) handleRecordViewKeys(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	}
 
 	return m, nil
+}
+
+// handleInlineSearchModeTableKeys handles keyboard input in inline search mode for table data
+func (m Model) handleInlineSearchModeTableKeys(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
+	key := msg.String()
+
+	switch key {
+	case "enter":
+		m.tableContentFilter = m.tableFilterSearch.Value()
+		m.inlineSearchMode = false
+		m.tableFilterSearch.Blur()
+		return m, nil
+
+	case "esc":
+		m.inlineSearchMode = false
+		m.tableFilterSearch.Blur()
+		// Restore unfiltered data if filter is cleared
+		if m.tableFilterSearch.Value() == "" {
+			m.tableContentFilter = ""
+			m.tableData = m.allTableData
+			m.selectedDataRow = 0
+			m.tableDataScrollY = 0
+		}
+		return m, nil
+
+	default:
+		oldValue := m.tableFilterSearch.Value()
+		var cmd tea.Cmd
+		m.tableFilterSearch, cmd = m.tableFilterSearch.Update(msg)
+		if m.tableFilterSearch.Value() != oldValue {
+			m.tableData = filterTableData(m.allTableData, m.tableFilterSearch.Value())
+			m.selectedDataRow = 0
+			m.tableDataScrollY = 0
+		}
+		return m, cmd
+	}
 }
 
 // handleSQLQueryModeKeys handles keyboard input in SQL query mode

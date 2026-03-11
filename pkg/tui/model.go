@@ -7,6 +7,7 @@ import (
 	"github.com/someshkoli/dessertfrog/pkg/driver"
 	"github.com/someshkoli/dessertfrog/pkg/encryption"
 	"github.com/someshkoli/dessertfrog/pkg/sqlhistory"
+	"github.com/someshkoli/dessertfrog/pkg/tui/components/inlinesearch"
 )
 
 // SortOrder represents the direction of a column sort
@@ -65,9 +66,9 @@ type TableListViewState struct {
 	tablesError            string
 	scrollOffset           int    // Current scroll position in table list
 	selectedRow            int    // Currently selected row index
-	inlineSearchMode       bool   // Whether inline search is active on main view
-	inlineSearchQuery      string // Inline search query
-	inlineSearchSuggestion string // Inline autocomplete suggestion
+	inlineSearchMode bool              // Whether inline search is active on main view
+	inlineSearch     inlinesearch.Model // Inline search component for table list
+	schemaSearch     inlinesearch.Model // Inline search component for schema panel (independent)
 	searchMode             bool   // Whether search popup is open
 	searchQuery            string // Popup search query
 	searchSuggestion       string // Popup autocomplete suggestion
@@ -93,39 +94,40 @@ type TableListState struct {
 
 // TableDataState manages table data viewing and pagination
 type TableDataState struct {
-	tableViewMode      bool                // Whether table data view is active
-	currentViewTable   *driver.TableSchema // Table being viewed
-	tableColumns       []string            // Column names
-	tableData          [][]string          // Table data rows
-	tableDataScrollX   int                 // Horizontal scroll position
-	tableDataScrollY   int                 // Vertical scroll position (for viewport)
-	selectedDataRow    int                 // Currently selected row in table data view
-	selectedDataCol    int                 // Currently selected column in table data view
-	tableDataOffset    int                 // Current offset for pagination (0, 500, 1000, etc.)
-	tableDataLoading   bool                // Whether table data is loading
-	tableDataError     string              // Error loading table data
-	tableContentFilter string              // Content search filter
-	allTableData       [][]string          // Unfiltered table data (backup for filtering)
-	queryTime          string              // Time taken to execute query (e.g., "15ms")
-	fetchTime          string              // Time taken to fetch data (e.g., "23ms")
-	deletedRows   map[string]map[int]bool    // Track which rows are marked for deletion (table key -> row index -> true)
-	tableSort     map[string]tableSortState  // Sort state per table key
-	restoreCursor bool                       // Restore cursor position after next data load
-	savedCursorRow   int                     // Cursor row to restore
-	savedCursorCol   int                     // Cursor col to restore
-	lastKeyPress     rune                    // Last key pressed (for detecting dd sequence)
-	visualMode         bool                // Whether in visual mode (for selecting multiple rows)
-	visualStartRow     int                 // Starting row of visual selection
+	tableViewMode      bool                      // Whether table data view is active
+	currentViewTable   *driver.TableSchema       // Table being viewed
+	tableColumns       []string                  // Column names
+	tableData          [][]string                // Table data rows
+	tableDataScrollX   int                       // Horizontal scroll position
+	tableDataScrollY   int                       // Vertical scroll position (for viewport)
+	selectedDataRow    int                       // Currently selected row in table data view
+	selectedDataCol    int                       // Currently selected column in table data view
+	tableDataOffset    int                       // Current offset for pagination (0, 500, 1000, etc.)
+	tableDataLoading   bool                      // Whether table data is loading
+	tableDataError     string                    // Error loading table data
+	tableContentFilter string             // Content search filter
+	tableFilterSearch  inlinesearch.Model // Inline search component for table content filter
+	allTableData       [][]string                // Unfiltered table data (backup for filtering)
+	queryTime          string                    // Time taken to execute query (e.g., "15ms")
+	fetchTime          string                    // Time taken to fetch data (e.g., "23ms")
+	deletedRows        map[string]map[int]bool   // Track which rows are marked for deletion (table key -> row index -> true)
+	tableSort          map[string]tableSortState // Sort state per table key
+	restoreCursor      bool                      // Restore cursor position after next data load
+	savedCursorRow     int                       // Cursor row to restore
+	savedCursorCol     int                       // Cursor col to restore
+	lastKeyPress       rune                      // Last key pressed (for detecting dd sequence)
+	visualMode         bool                      // Whether in visual mode (for selecting multiple rows)
+	visualStartRow     int                       // Starting row of visual selection
 }
 
 // CellValuePopupState manages cell value popup for viewing single cell content
 type CellValuePopupState struct {
-	cellValuePopupMode     bool       // Whether cell value popup is active
-	cellValuePopupContent  string     // The cell value to display
-	cellValuePopupIsJSON   bool       // Whether the value is JSON
-	cellValuePopupTree     []JSONNode // JSON tree structure
-	cellValuePopupScroll   int        // Scroll position in popup
-	cellValuePopupSelected int        // Selected node in JSON tree
+	cellValuePopupMode     bool                     // Whether cell value popup is active
+	cellValuePopupContent  string                   // The cell value to display
+	cellValuePopupIsJSON   bool                     // Whether the value is JSON
+	cellValuePopupTree     []JSONNode               // JSON tree structure
+	cellValuePopupScroll   int                      // Scroll position in popup
+	cellValuePopupSelected int                      // Selected node in JSON tree
 	cellValuePopupStack    []CellValuePopupSnapshot // Stack of previous popup states
 }
 
@@ -436,12 +438,25 @@ func NewModel(config DBConfig, keyBindings KeyBindings, styles Styles) Model {
 		},
 	}
 
-
 	// Initialize textinput fields after styles are set
 	m.connInputs = m.makeConnectionInputs()
 	m.passphraseInput = m.makePassphraseInput()
 	m.connManagerFilter = m.makeConnectionManagerFilter()
 	m.sqlQueryInput = m.makeSQLQueryInput()
+
+	// Initialize inline search components
+	m.inlineSearch = inlinesearch.New(styles.ActiveSearchInputStyle, styles.InactiveSearchInputStyle)
+	m.inlineSearch.SuggestionStyle = styles.GhostTextStyle
+	m.inlineSearch.SetPrompt("Filter: ")
+	m.inlineSearch.SetPlaceholder("search tables...")
+
+	m.tableFilterSearch = inlinesearch.New(styles.ActiveSearchInputStyle, styles.InactiveSearchInputStyle)
+	m.tableFilterSearch.SetPrompt("Filter: ")
+	m.tableFilterSearch.SetPlaceholder("filter rows...")
+
+	m.schemaSearch = inlinesearch.New(styles.ActiveSearchInputStyle, styles.InactiveSearchInputStyle)
+	m.schemaSearch.SetPrompt("Schema: ")
+	m.schemaSearch.SetPlaceholder("search schema...")
 
 	return m
 }
@@ -587,6 +602,7 @@ func (m Model) makeConnectionManagerFilter() textinput.Model {
 	input.PlaceholderStyle = m.styles.TextInputPlaceholderStyle
 	return input
 }
+
 
 func (m Model) makeSQLQueryInput() textinput.Model {
 	input := textinput.New()
