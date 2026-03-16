@@ -39,7 +39,7 @@ func (m Model) handleConnectionInputKeys(msg tea.KeyMsg) (Model, tea.Cmd) {
 	if key == "tab" {
 		m.connInputs[m.connInputField].Blur()
 		m.connInputField++
-		if m.connInputField > 6 { // 7 fields total (0-6)
+		if m.connInputField > 7 { // 8 fields total (0-7)
 			m.connInputField = 0
 		}
 		m.connInputs[m.connInputField].Focus()
@@ -50,7 +50,7 @@ func (m Model) handleConnectionInputKeys(msg tea.KeyMsg) (Model, tea.Cmd) {
 		m.connInputs[m.connInputField].Blur()
 		m.connInputField--
 		if m.connInputField < 0 {
-			m.connInputField = 6
+			m.connInputField = 7
 		}
 		m.connInputs[m.connInputField].Focus()
 		return m, nil
@@ -83,6 +83,7 @@ func (m Model) submitNewConnection() (Model, tea.Cmd) {
 	password := m.connInputs[4].Value() // Don't trim password
 	database := strings.TrimSpace(m.connInputs[5].Value())
 	schema := strings.TrimSpace(m.connInputs[6].Value())
+	sslMode := strings.TrimSpace(m.connInputs[7].Value())
 
 	// Validate inputs
 	if driver == "" {
@@ -148,6 +149,11 @@ func (m Model) submitNewConnection() (Model, tea.Cmd) {
 		schema = "public"
 	}
 
+	// Set default SSL mode
+	if sslMode == "" {
+		sslMode = "disable"
+	}
+
 	// Clear any previous error and close input form
 	m.connectionError = ""
 	m.connInputMode = false
@@ -162,6 +168,7 @@ func (m Model) submitNewConnection() (Model, tea.Cmd) {
 		Password: password,
 		Database: database,
 		Schema:   schema,
+		SSLMode:  sslMode,
 	}
 
 	// Switch to the new connection

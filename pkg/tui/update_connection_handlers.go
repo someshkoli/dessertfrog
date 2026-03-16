@@ -21,6 +21,7 @@ func (m Model) handleConnectionSuccess(msg connectionSuccessMsg) (tea.Model, tea
 			m.dbConfig.Password,
 			m.dbConfig.Database,
 			m.dbConfig.Schema,
+			m.dbConfig.SSLMode,
 		)
 		if err != nil {
 			// Log error but don't fail connection
@@ -75,6 +76,7 @@ func (m Model) handleConnectionSwitchSuccess(msg connectionSwitchSuccessMsg) (te
 			msg.dbConfig.Password,
 			msg.dbConfig.Database,
 			msg.dbConfig.Schema,
+			msg.dbConfig.SSLMode,
 		)
 		if err != nil {
 			m = m.debugLog(fmt.Sprintf("Failed to save switched connection to history: %v", err))

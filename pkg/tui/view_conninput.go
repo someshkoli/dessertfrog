@@ -30,6 +30,7 @@ func (m Model) renderConnectionInputPopup(baseView string) string {
 		"Password:",
 		"Database:",
 		"Schema:",
+		"SSL Mode:",
 	}
 
 	for i, label := range labels {

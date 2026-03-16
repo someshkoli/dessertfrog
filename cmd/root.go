@@ -22,6 +22,7 @@ var (
 	dbPassword string
 	dbName     string
 	dbSchema   string
+	dbSSLMode  string
 	configFile string
 )
 
@@ -93,6 +94,10 @@ Connect to your database and browse tables, schemas, and data with an intuitive 
 			}
 		}
 
+		if !cmd.Flags().Changed("ssl-mode") {
+			dbSSLMode = "disable"
+		}
+
 		return nil
 	},
 	Run: func(cmd *cobra.Command, args []string) {
@@ -121,6 +126,7 @@ Connect to your database and browse tables, schemas, and data with an intuitive 
 			Password: dbPassword,
 			Database: dbName,
 			Schema:   dbSchema,
+			SSLMode:  dbSSLMode,
 		}
 
 		// Create and start the bubbletea program
@@ -153,4 +159,5 @@ func init() {
 	rootCmd.Flags().StringVarP(&dbPassword, "password", "P", "", "Database password")
 	rootCmd.Flags().StringVarP(&dbName, "database", "n", "", "Database name (default: postgres for postgres, mysql for mariadb, default for clickhouse)")
 	rootCmd.Flags().StringVarP(&dbSchema, "schema", "s", "", "Database schema (default: public for postgres)")
+	rootCmd.Flags().StringVar(&dbSSLMode, "ssl-mode", "", "SSL mode (disable, require, verify-full) (default: disable)")
 }

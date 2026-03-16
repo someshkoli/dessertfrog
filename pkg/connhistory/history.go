@@ -23,6 +23,7 @@ type ConnectionEntry struct {
 	Password  string    `json:"password"`
 	Database  string    `json:"database"`
 	Schema    string    `json:"schema,omitempty"`
+	SSLMode   string    `json:"ssl_mode,omitempty"`
 	Timestamp time.Time `json:"timestamp"`
 }
 
@@ -263,7 +264,7 @@ func (h *History) save() error {
 
 // Add adds a new connection to history
 // If the connection already exists, it updates the timestamp and moves it to the front
-func (h *History) Add(driver, host string, port int, username, password, database, schema string) error {
+func (h *History) Add(driver, host string, port int, username, password, database, schema, sslMode string) error {
 	newEntry := ConnectionEntry{
 		Driver:    driver,
 		Host:      host,
@@ -272,6 +273,7 @@ func (h *History) Add(driver, host string, port int, username, password, databas
 		Password:  password,
 		Database:  database,
 		Schema:    schema,
+		SSLMode:   sslMode,
 		Timestamp: time.Now(),
 	}
 

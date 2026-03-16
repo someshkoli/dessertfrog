@@ -28,6 +28,7 @@ type DBConfig struct {
 	Password string
 	Database string
 	Schema   string
+	SSLMode  string
 }
 
 // ConnectionStatus represents the state of database connection
@@ -325,7 +326,7 @@ func NewModel(config DBConfig, keyBindings KeyBindings, styles Styles) Model {
 			Schema:   config.Schema,
 			User:     config.Username,
 			Password: config.Password,
-			SSLMode:  "disable", // Default to disable for now
+			SSLMode:  config.SSLMode,
 		}
 
 		switch config.Driver {
@@ -564,6 +565,16 @@ func (m Model) makeConnectionInputs() []textinput.Model {
 			input := textinput.New()
 			input.Placeholder = "public (postgres only)"
 			input.CharLimit = 50
+			input.Width = 50
+			input.Prompt = ""
+			input.TextStyle = m.styles.TextInputStyle
+			input.PlaceholderStyle = m.styles.TextInputPlaceholderStyle
+			return input
+		}(),
+		func() textinput.Model {
+			input := textinput.New()
+			input.Placeholder = "disable (disable, require, verify-full)"
+			input.CharLimit = 20
 			input.Width = 50
 			input.Prompt = ""
 			input.TextStyle = m.styles.TextInputStyle

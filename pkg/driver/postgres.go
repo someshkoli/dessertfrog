@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"os"
 	"strings"
 	"time"
 
@@ -26,13 +27,19 @@ func NewPostgresDriver(config *Config) *PostgresDriver {
 
 // Connect establishes a connection pool to the PostgreSQL database
 func (p *PostgresDriver) Connect(ctx context.Context) error {
+	// Fall back to PGPASSWORD env var if no password is provided
+	password := p.config.Password
+	if password == "" {
+		password = os.Getenv("PGPASSWORD")
+	}
+
 	// Build connection string
 	connString := fmt.Sprintf(
 		"host=%s port=%d user=%s password=%s dbname=%s sslmode=%s pool_max_conns=10",
 		p.config.Host,
 		p.config.Port,
 		p.config.User,
-		p.config.Password,
+		password,
 		p.config.Database,
 		p.config.SSLMode,
 	)

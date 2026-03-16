@@ -199,6 +199,11 @@ func (m Model) handleConnectionManagerKeys(msg tea.KeyMsg) (Model, tea.Cmd) {
 func switchConnection(conn connhistory.ConnectionEntry) tea.Cmd {
 	return func() tea.Msg {
 		// Create driver configuration
+		sslMode := conn.SSLMode
+		if sslMode == "" {
+			sslMode = "disable"
+		}
+
 		driverConfig := &driver.Config{
 			Host:     conn.Host,
 			Port:     conn.Port,
@@ -206,7 +211,7 @@ func switchConnection(conn connhistory.ConnectionEntry) tea.Cmd {
 			Schema:   conn.Schema,
 			User:     conn.Username,
 			Password: conn.Password,
-			SSLMode:  "disable", // Default
+			SSLMode:  sslMode,
 		}
 
 		// Create driver based on connection type
@@ -247,6 +252,7 @@ func switchConnection(conn connhistory.ConnectionEntry) tea.Cmd {
 				Password: conn.Password,
 				Database: conn.Database,
 				Schema:   conn.Schema,
+				SSLMode:  sslMode,
 			},
 			sqlHistory: sqlHist,
 		}

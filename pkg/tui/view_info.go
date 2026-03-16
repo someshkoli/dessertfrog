@@ -75,6 +75,13 @@ func (m Model) renderStatusLine() string {
 
 // renderConnectionError renders the connection error prominently on main screen
 func (m Model) renderConnectionError() string {
+	// Wrap error text to fit within the available width
+	// Account for border (2) + padding (4*2) + screen border padding
+	maxWidth := m.width - 14
+	if maxWidth < 40 {
+		maxWidth = 40
+	}
+
 	errorContent := fmt.Sprintf("Connection Failed\n\n%s\n\nDetails:\nDriver: %s\nHost: %s:%d\nDatabase: %s\nUser: %s",
 		m.connectionError,
 		m.dbConfig.Driver,
@@ -83,5 +90,5 @@ func (m Model) renderConnectionError() string {
 		m.dbConfig.Database,
 		m.dbConfig.Username,
 	)
-	return m.styles.ErrorBoxStyle.Render(errorContent)
+	return m.styles.ErrorBoxStyle.Width(maxWidth).Render(errorContent)
 }
