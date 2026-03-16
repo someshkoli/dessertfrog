@@ -63,6 +63,7 @@ type ColorSchemeConfig struct {
 	TableSeparator         string `yaml:"table_separator,omitempty"`           // Column/row separator and border (default: 238)
 	TableDeletedSelectedBg string `yaml:"table_deleted_selected_bg,omitempty"` // Cursor-on-deleted-row background (default: 1)
 	TableDeletedSelectedFg string `yaml:"table_deleted_selected_fg,omitempty"` // Cursor-on-deleted-row foreground (default: 15)
+	TableSelectedRowColor  string `yaml:"table_selector_color,omitempty"`      // Row selector border color (default: 212)
 
 	// Mode indicator colors
 	ModeIndicatorFg     string `yaml:"mode_indicator_fg,omitempty"`      // Text color for all mode indicators (default: 0)
@@ -134,6 +135,7 @@ func DefaultColorScheme() ColorSchemeConfig {
 		TableSeparator:         "238",
 		TableDeletedSelectedBg: "1",
 		TableDeletedSelectedFg: "15",
+		TableSelectedRowColor:  "212",
 		ModeIndicatorFg:        "0",
 		ModeNormalBg:           "12",
 		ModeVisualBg:           "13",
@@ -279,6 +281,9 @@ func (c *ColorSchemeConfig) MergeWithDefaults() ColorSchemeConfig {
 	}
 	if result.TableDeletedSelectedFg == "" {
 		result.TableDeletedSelectedFg = defaults.TableDeletedSelectedFg
+	}
+	if result.TableSelectedRowColor == "" {
+		result.TableSelectedRowColor = defaults.TableSelectedRowColor
 	}
 	if result.ModeIndicatorFg == "" {
 		result.ModeIndicatorFg = defaults.ModeIndicatorFg

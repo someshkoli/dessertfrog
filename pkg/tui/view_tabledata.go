@@ -155,6 +155,7 @@ func (m Model) renderTableDataView() string {
 	for rowIdx := startRow; rowIdx < endRow; rowIdx++ {
 		row := m.tableData[rowIdx]
 		isDeleted := m.currentDeletedRows()[rowIdx]
+		isSelectedRow := rowIdx == m.selectedDataRow
 
 		for _, colIdx := range visibleColumns {
 			var cellContent string
@@ -167,13 +168,15 @@ func (m Model) renderTableDataView() string {
 			bufferKey := fmt.Sprintf("%d:%d", rowIdx, colIdx)
 			_, hasPendingEdit := m.cellEditBuffer[bufferKey]
 
-			isSelected := rowIdx == m.selectedDataRow && colIdx == m.selectedDataCol
-			if isDeleted && isSelected {
+			isSelectedCell := isSelectedRow && colIdx == m.selectedDataCol
+			if isDeleted && isSelectedCell {
 				content.WriteString(m.styles.TableDeletedRowSelectedStyle.Render(cellContent))
 			} else if isDeleted {
 				content.WriteString(m.styles.TableDeletedRowStyle.Render(cellContent))
-			} else if isSelected {
-				content.WriteString(m.styles.SelectedRowStyle.Render(cellContent))
+			} else if isSelectedCell {
+				content.WriteString(m.styles.TableDataSelectedCellStyle.Render(cellContent))
+			} else if isSelectedRow {
+				content.WriteString(m.styles.TableDataSelectedRowStyle.Render(cellContent))
 			} else if hasPendingEdit {
 				content.WriteString(m.styles.CellPendingEditStyle.Render(cellContent))
 			} else {

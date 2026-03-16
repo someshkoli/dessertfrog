@@ -67,10 +67,12 @@ type Styles struct {
 	TableFilterStyle             lipgloss.Style
 	TableClipboardStyle          lipgloss.Style
 	TableSeparatorStyle          lipgloss.Style
+	TableDataSelectedCellStyle   lipgloss.Style
 	TableDeletedRowStyle         lipgloss.Style
 	TableDeletedRowSelectedStyle lipgloss.Style
-	TableNormalModeStyle lipgloss.Style
-	TableVisualModeStyle lipgloss.Style
+	TableNormalModeStyle         lipgloss.Style
+	TableVisualModeStyle         lipgloss.Style
+	TableDataSelectedRowStyle    lipgloss.Style
 
 	// SQL history styles
 	SQLHistoryTitleStyle    lipgloss.Style
@@ -193,6 +195,10 @@ func NewStyles(scheme config.ColorSchemeConfig) Styles {
 			Foreground(lipgloss.Color(scheme.SelectionFg)).
 			Bold(true),
 
+		TableDataSelectedRowStyle: lipgloss.NewStyle().
+			Foreground(lipgloss.Color(scheme.TableSelectedRowColor)).
+			Bold(true),
+
 		// Search popup styles
 		PopupStyle: lipgloss.NewStyle().
 			Border(lipgloss.RoundedBorder()).
@@ -302,6 +308,11 @@ func NewStyles(scheme config.ColorSchemeConfig) Styles {
 
 		TableSeparatorStyle: lipgloss.NewStyle().
 			Foreground(lipgloss.Color(scheme.TableSeparator)),
+
+		TableDataSelectedCellStyle: lipgloss.NewStyle().
+			Background(lipgloss.Color(scheme.SelectionBg)).
+			Foreground(lipgloss.Color(scheme.SelectionFg)).
+			Bold(true),
 
 		TableDeletedRowStyle: lipgloss.NewStyle().
 			Foreground(lipgloss.Color(scheme.StatusError)).
