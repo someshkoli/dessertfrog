@@ -2,6 +2,7 @@ package driver
 
 import (
 	"context"
+	"crypto/tls"
 	"encoding/json"
 	"fmt"
 	"reflect"
@@ -43,6 +44,14 @@ func (c *ClickHouseDriver) Connect(ctx context.Context) error {
 		MaxIdleConns:     5,
 		ConnMaxLifetime:  time.Hour,
 		ConnOpenStrategy: clickhouse.ConnOpenInOrder,
+	}
+
+	// Configure TLS based on SSLMode
+	switch c.config.SSLMode {
+	case "require":
+		opts.TLS = &tls.Config{InsecureSkipVerify: true}
+	case "verify-full":
+		opts.TLS = &tls.Config{}
 	}
 
 	// Create connection

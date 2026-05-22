@@ -55,7 +55,8 @@ func (m Model) getHelpContent() string {
 		content.WriteString("  v              View cell value in popup\n")
 		content.WriteString("  V              View entire record as key-value pairs\n")
 		content.WriteString("  i              Edit cell value\n")
-		content.WriteString("  :w             Save all pending edits/deletes\n\n")
+		content.WriteString("  :w             Save all pending edits/deletes\n")
+		content.WriteString("  r              Refresh data from database\n\n")
 
 		content.WriteString(m.styles.SchemaSectionStyle.Render("Selection & Deletion:") + "\n")
 		content.WriteString("  dd             Mark/unmark row for deletion\n")

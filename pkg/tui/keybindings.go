@@ -58,6 +58,7 @@ const (
 	CommandOpenCellPopup  Command = "open_cell_popup"
 	CommandOpenRecordView Command = "open_record_view"
 	CommandFilterContent  Command = "filter_content"
+	CommandRefreshData    Command = "refresh_data"
 
 	// Debug commands
 	CommandToggleDebug      Command = "toggle_debug"
@@ -161,8 +162,8 @@ func DefaultKeyBindings() KeyBindings {
 			{"enter", CommandOpenCellPopup},
 			{"c", CommandOpenConnectionManager},
 			{"v", CommandOpenCellPopup},
-			{"r", CommandOpenRecordView},
 			{"V", CommandOpenRecordView},
+			{"r", CommandRefreshData},
 			{"/", CommandFilterContent},
 			{"ctrl+p", CommandOpenSearch},
 			{"s", CommandOpenSQLQuery},

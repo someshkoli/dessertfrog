@@ -821,6 +821,19 @@ func (m Model) handleTableViewModeKeys(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 				return m, fetchTableDataSorted(m.driver, m.currentViewTable.SchemaName, m.currentViewTable.TableName, col, SortDesc, 0)
 			}
 
+		case CommandRefreshData:
+			if m.currentViewTable != nil {
+				m.restoreCursor = true
+				m.savedCursorRow = m.selectedDataRow
+				m.savedCursorCol = m.selectedDataCol
+				m.tableDataLoading = true
+				cur := m.currentSort()
+				if cur.order != SortNone {
+					return m, fetchTableDataSorted(m.driver, m.currentViewTable.SchemaName, m.currentViewTable.TableName, cur.column, cur.order, m.tableDataOffset)
+				}
+				return m, fetchTableData(m.driver, m.currentViewTable.SchemaName, m.currentViewTable.TableName, m.tableDataOffset)
+			}
+
 		case CommandNextPage:
 			if m.currentViewTable != nil && len(m.tableData) == 500 {
 				m.tableDataOffset += 500
@@ -1255,7 +1268,7 @@ func (m Model) handleSQLQueryModeKeys(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	key := msg.String()
 
 	// Handle up/down for history suggestions navigation
-	if key == "up" || key == "ctrl+k" {
+	if key == "up" {
 		if m.sqlHistorySuggestionsVisible && len(m.sqlHistorySuggestions) > 0 {
 			m.sqlHistorySelected--
 			if m.sqlHistorySelected < 0 {
@@ -1263,7 +1276,7 @@ func (m Model) handleSQLQueryModeKeys(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 			}
 			return m, nil
 		}
-	} else if key == "down" || key == "ctrl+j" {
+	} else if key == "down" {
 		if m.sqlHistorySuggestionsVisible && len(m.sqlHistorySuggestions) > 0 {
 			m.sqlHistorySelected++
 			if m.sqlHistorySelected >= len(m.sqlHistorySuggestions) {

@@ -47,15 +47,15 @@ func (m Model) View() string {
 			if m.cellEditBufferCount > 0 || len(m.currentDeletedRows()) > 0 {
 				// Show :w hint when there are pending edits or deletions
 				if m.isCustomQuery {
-					helpText = "i: edit | dd: delete | :w: save all | v: view | y: copy | Y: row | /: filter | c: connections | hjkl: move | s: query | q: quit | o: back"
+					helpText = "i: edit | dd: delete | :w: save all | v: view | y: copy | Y: row | /: filter | r: refresh | c: connections | hjkl: move | s: query | q: quit | o: back"
 				} else {
-					helpText = "i: edit | dd: delete | :w: save all | v: view | y: copy | Y: row | /: filter | c: connections | hjkl: move | n/p: page | s: query | q: quit"
+					helpText = "i: edit | dd: delete | :w: save all | v: view | y: copy | Y: row | /: filter | r: refresh | c: connections | hjkl: move | n/p: page | s: query | q: quit"
 				}
 			} else {
 				if m.isCustomQuery {
-					helpText = "i: edit | dd: delete | v: view | V: record | y: copy | Y: row | /: filter | c: connections | hjkl: move | s: query | q: quit | o: back"
+					helpText = "i: edit | dd: delete | v: view | V: record | y: copy | Y: row | /: filter | r: refresh | c: connections | hjkl: move | s: query | q: quit | o: back"
 				} else {
-					helpText = "i: edit | dd: delete | v: view | V: record | y: copy | Y: row | /: filter | c: connections | hjkl: move | n/p: page | s: query | q: quit"
+					helpText = "i: edit | dd: delete | v: view | V: record | y: copy | Y: row | /: filter | r: refresh | c: connections | hjkl: move | n/p: page | s: query | q: quit"
 				}
 			}
 
