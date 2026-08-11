@@ -26,6 +26,11 @@ func (m Model) View() string {
 		tableDataView := m.renderTableDataView()
 		mainContent += tableDataView
 
+		// SQL history suggestions window above the query input bar
+		if m.sqlQueryMode && m.sqlHistorySuggestionsVisible && len(m.sqlHistorySuggestions) > 0 {
+			mainContent += "\n" + m.renderSQLHistorySuggestionsWindow()
+		}
+
 		// Filter input bar for content filtering
 		if m.inlineSearchMode {
 			filterInput := m.tableFilterSearch.View()
@@ -37,9 +42,9 @@ func (m Model) View() string {
 			sqlPrompt := "SQL Query: "
 			sqlInput := m.styles.CommandLineStyle.Render(sqlPrompt + m.sqlQueryInput.View())
 			if m.sqlHistorySuggestionsVisible {
-				bottomBar = sqlInput + "\n" + m.styles.HelpStyle.Render("Enter: select | ↑/↓: navigate | Esc: close suggestions | Ctrl+N: toggle")
+				bottomBar = sqlInput + "\n" + m.styles.HelpStyle.Render("Enter: select | ↑/↓: navigate | Esc: close suggestions | Ctrl+R: toggle")
 			} else {
-				bottomBar = sqlInput + "\n" + m.styles.HelpStyle.Render("Enter: execute | Esc: cancel | Ctrl+N: show history")
+				bottomBar = sqlInput + "\n" + m.styles.HelpStyle.Render("Enter: execute | Esc: cancel | Ctrl+R: show history")
 			}
 		} else {
 			// Show help text with 's' to view/edit query
@@ -188,8 +193,8 @@ func (m Model) View() string {
 
 			// Calculate panel height - pass directly, let functions handle internally
 			panelHeight := availableHeight
-			if m.inlineSearchMode {
-				panelHeight = availableHeight - 3 // Account for search bar
+			if m.inlineSearchMode || m.inlineSearch.Value() != "" {
+				panelHeight = availableHeight - 3 // Account for search/filter bar
 			}
 
 			// Left side: tables list
@@ -202,11 +207,14 @@ func (m Model) View() string {
 			splitView := lipgloss.JoinHorizontal(lipgloss.Top, tablesBox, schemaPanel)
 			mainContent += splitView
 
-			// Row 3: Filter box (if active)
+			// Row 3: Filter box (while searching, or as indicator when a filter persists)
 			if m.inlineSearchMode {
 				mainContent += "\n"
 				searchBar := m.renderInlineSearchBar()
 				mainContent += searchBar
+			} else if m.inlineSearch.Value() != "" {
+				mainContent += "\n"
+				mainContent += m.styles.HelpStyle.Render(fmt.Sprintf("Filter: %s (/ to edit)", m.inlineSearch.Value()))
 			}
 		}
 
@@ -224,12 +232,12 @@ func (m Model) View() string {
 			sqlPrompt := "SQL Query: "
 			sqlInput := m.styles.CommandLineStyle.Render(sqlPrompt + m.sqlQueryInput.View())
 			if m.sqlHistorySuggestionsVisible {
-				bottomBar = sqlInput + "\n" + m.styles.HelpStyle.Render("Enter: select | ↑/↓: navigate | Esc: cancel | Ctrl+N: toggle")
+				bottomBar = sqlInput + "\n" + m.styles.HelpStyle.Render("Enter: select | ↑/↓: navigate | Esc: cancel | Ctrl+R: toggle")
 			} else {
-				bottomBar = sqlInput + "\n" + m.styles.HelpStyle.Render("Enter: execute | Esc: cancel | Ctrl+N: show history")
+				bottomBar = sqlInput + "\n" + m.styles.HelpStyle.Render("Enter: execute | Esc: cancel | Ctrl+R: show history")
 			}
 		} else if m.inlineSearchMode {
-			bottomBar = m.styles.HelpStyle.Render("↑/↓: navigate | Tab: autocomplete | Esc: clear filter | Enter: open table")
+			bottomBar = m.styles.HelpStyle.Render("↑/↓: navigate | Ctrl+D/U: half page | Tab: autocomplete | Esc: keep filter & exit | Enter: open table")
 		} else {
 			bottomBar = m.styles.HelpStyle.Render("/: filter | Ctrl+P: search | s: SQL query | c: connections | Tab: switch panel | j/k: scroll | Enter: view | g/G: top/bot | q: quit")
 		}

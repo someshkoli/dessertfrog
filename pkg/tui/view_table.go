@@ -16,14 +16,10 @@ func (m Model) renderTablesContent(visibleRows, contentWidth int) string {
 		return "No tables found in database"
 	}
 
-	// Determine which tables to display
-	displayTables := m.tables
-	if m.inlineSearchMode && m.inlineSearch.Value() != "" {
-		// Filter tables based on inline search query
-		displayTables = filterTables(m.tables, m.inlineSearch.Value())
-		if len(displayTables) == 0 {
-			return "No tables match filter"
-		}
+	// Determine which tables to display (filter persists after leaving search mode)
+	displayTables := m.displayTables()
+	if len(displayTables) == 0 {
+		return "No tables match filter"
 	}
 
 	// Calculate dynamic column widths
@@ -123,11 +119,8 @@ func (m Model) renderTablesBox(availableWidth, availableHeight int) string {
 		visibleRows = 1
 	}
 
-	// Determine which tables to use for scroll calculations
-	displayTables := m.tables
-	if m.inlineSearchMode && m.inlineSearch.Value() != "" {
-		displayTables = filterTables(m.tables, m.inlineSearch.Value())
-	}
+	// Determine which tables to use for scroll calculations (filter persists after leaving search mode)
+	displayTables := m.displayTables()
 
 	// Adjust scroll offset to keep selected row visible
 	if m.selectedRow < m.scrollOffset {

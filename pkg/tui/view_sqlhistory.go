@@ -5,6 +5,17 @@ import (
 	"strings"
 )
 
+// sqlHistoryWindowHeight returns the number of terminal lines the suggestions
+// window occupies (title + spacer + entries + border), including the joining
+// newline added by the caller.
+func (m Model) sqlHistoryWindowHeight() int {
+	visible := len(m.sqlHistorySuggestions)
+	if visible > 10 {
+		visible = 10
+	}
+	return visible + 5
+}
+
 // renderSQLHistorySuggestionsWindow renders the SQL history suggestions as an inline window above the input bar
 func (m Model) renderSQLHistorySuggestionsWindow() string {
 	if len(m.sqlHistorySuggestions) == 0 {
@@ -17,12 +28,21 @@ func (m Model) renderSQLHistorySuggestionsWindow() string {
 		maxVisible = len(m.sqlHistorySuggestions)
 	}
 
+	// Scroll the visible window so the selected entry is always shown
+	start := 0
+	if m.sqlHistorySelected >= maxVisible {
+		start = m.sqlHistorySelected - maxVisible + 1
+	}
+	if start > len(m.sqlHistorySuggestions)-maxVisible {
+		start = len(m.sqlHistorySuggestions) - maxVisible
+	}
+
 	var lines []string
 
 	// Title line
 	title := m.styles.SQLHistoryTitleStyle.Render("SQL History")
 	if len(m.sqlHistorySuggestions) > maxVisible {
-		title += " " + m.styles.SQLHistoryCountStyle.Render(fmt.Sprintf("(%d/%d)", maxVisible, len(m.sqlHistorySuggestions)))
+		title += " " + m.styles.SQLHistoryCountStyle.Render(fmt.Sprintf("(%d-%d/%d)", start+1, start+maxVisible, len(m.sqlHistorySuggestions)))
 	} else {
 		title += " " + m.styles.SQLHistoryCountStyle.Render(fmt.Sprintf("(%d)", len(m.sqlHistorySuggestions)))
 	}
@@ -32,7 +52,7 @@ func (m Model) renderSQLHistorySuggestionsWindow() string {
 
 	// Suggestion lines
 
-	for i := 0; i < maxVisible; i++ {
+	for i := start; i < start+maxVisible; i++ {
 		entry := m.sqlHistorySuggestions[i]
 		query := entry.Query
 

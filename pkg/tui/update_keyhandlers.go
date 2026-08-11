@@ -285,6 +285,35 @@ func (m Model) handleCommandModeKeys(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	return m, nil
 }
 
+// displayTables returns the table list with the active inline filter applied.
+func (m Model) displayTables() []driver.TableSchema {
+	if query := m.inlineSearch.Value(); query != "" {
+		return filterTables(m.tables, query)
+	}
+	return m.tables
+}
+
+// tableListJumpSize returns the half-page jump size for the tables list (vim Ctrl+D/Ctrl+U)
+func (m Model) tableListJumpSize() int {
+	availableHeight := m.height - 4
+	if availableHeight < 10 {
+		availableHeight = 10
+	}
+	tablesBoxHeight := availableHeight - 8
+	if tablesBoxHeight < 5 {
+		tablesBoxHeight = 5
+	}
+	visibleRows := tablesBoxHeight - 2
+	if visibleRows < 1 {
+		visibleRows = 1
+	}
+	jumpSize := visibleRows / 2
+	if jumpSize < 1 {
+		jumpSize = 1
+	}
+	return jumpSize
+}
+
 // handleInlineSearchModeKeys handles keyboard input in inline search mode
 func (m Model) handleInlineSearchModeKeys(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	tableQuery := m.inlineSearch.Value()
@@ -324,15 +353,12 @@ func (m Model) handleInlineSearchModeKeys(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		m.inlineSearchMode = false
 
 	case "esc":
+		// Exit search input but keep the filter applied
 		m.inlineSearchMode = false
-		m.inlineSearch.SetValue("")
 		m.inlineSearch.SetSuggestion("")
 		m.inlineSearch.Blur()
-		m.schemaSearch.SetValue("")
 		m.schemaSearch.Blur()
 		m.schemaPanelFocused = false
-		m.selectedRow = 0
-		m.scrollOffset = 0
 
 	case "tab":
 		suggestion := getAutocompleteSuggestion(tableQuery)
@@ -391,6 +417,54 @@ func (m Model) handleInlineSearchModeKeys(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 				m.schemaInfo = nil
 				selectedTable := displayTables[m.selectedRow]
 				return m, fetchSchemaInfo(m.driver, selectedTable.SchemaName, selectedTable.TableName)
+			}
+		}
+
+	case "ctrl+d":
+		if m.schemaPanelFocused {
+			if m.schemaPanelLineCount > 0 {
+				m.schemaPanelSelected += m.tableListJumpSize()
+				if m.schemaPanelSelected > m.schemaPanelLineCount-1 {
+					m.schemaPanelSelected = m.schemaPanelLineCount - 1
+				}
+			}
+		} else {
+			displayTables := m.displayTables()
+			if len(displayTables) > 0 {
+				newRow := m.selectedRow + m.tableListJumpSize()
+				if newRow > len(displayTables)-1 {
+					newRow = len(displayTables) - 1
+				}
+				if newRow != m.selectedRow {
+					m.selectedRow = newRow
+					m.schemaInfoLoading = true
+					m.schemaInfo = nil
+					selectedTable := displayTables[m.selectedRow]
+					return m, fetchSchemaInfo(m.driver, selectedTable.SchemaName, selectedTable.TableName)
+				}
+			}
+		}
+
+	case "ctrl+u":
+		if m.schemaPanelFocused {
+			m.schemaPanelSelected -= m.tableListJumpSize()
+			if m.schemaPanelSelected < 0 {
+				m.schemaPanelSelected = 0
+			}
+		} else {
+			displayTables := m.displayTables()
+			if len(displayTables) > 0 {
+				newRow := m.selectedRow - m.tableListJumpSize()
+				if newRow < 0 {
+					newRow = 0
+				}
+				if newRow != m.selectedRow {
+					m.selectedRow = newRow
+					m.schemaInfoLoading = true
+					m.schemaInfo = nil
+					selectedTable := displayTables[m.selectedRow]
+					return m, fetchSchemaInfo(m.driver, selectedTable.SchemaName, selectedTable.TableName)
+				}
 			}
 		}
 
@@ -464,9 +538,10 @@ func (m Model) handleNormalModeKeys(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	if cmd, ok := getCommand(key, m.keyBindings.Normal); ok {
 		switch cmd {
 		case CommandOpenTable:
-			// Open table view for selected table
-			if len(m.tables) > 0 && m.selectedRow < len(m.tables) {
-				selectedTable := m.tables[m.selectedRow]
+			// Open table view for selected table (respects active filter)
+			displayTables := m.displayTables()
+			if len(displayTables) > 0 && m.selectedRow < len(displayTables) {
+				selectedTable := displayTables[m.selectedRow]
 				m.tableViewMode = true
 				m.currentViewTable = &selectedTable
 				m.tableDataLoading = true
@@ -493,7 +568,8 @@ func (m Model) handleNormalModeKeys(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 				m.schemaSearch.Focus()
 				m.inlineSearch.Blur()
 			} else {
-				m.inlineSearch.SetValue("")
+				// Keep any active filter so it can be edited
+				m.inlineSearch.CursorEnd()
 				m.inlineSearch.SetSuggestion("")
 				m.inlineSearch.Focus()
 				m.schemaSearch.SetValue("")
@@ -511,7 +587,8 @@ func (m Model) handleNormalModeKeys(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 			m.sqlQueryMode = true
 			m.sqlQueryInput.SetValue("")
 			m.sqlQueryInput.Focus()
-			m = m.updateSQLHistorySuggestions()
+			m.sqlHistorySuggestionsVisible = false
+			m.sqlHistorySelected = -1
 
 		case CommandOpenConnectionManager:
 			// Open connection manager popup
@@ -539,8 +616,9 @@ func (m Model) handleNormalModeKeys(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 					m.schemaPanelSelected++
 				}
 			} else {
-				// Move down in table list
-				if m.selectedRow < len(m.tables)-1 {
+				// Move down in table list (respects active filter)
+				displayTables := m.displayTables()
+				if m.selectedRow < len(displayTables)-1 {
 					m.selectedRow++
 					// Reset schema panel cursor when switching tables
 					m.schemaPanelSelected = 0
@@ -550,7 +628,7 @@ func (m Model) handleNormalModeKeys(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 					// Trigger async schema info fetch for new table
 					m.schemaInfoLoading = true
 					m.schemaInfo = nil
-					selectedTable := m.tables[m.selectedRow]
+					selectedTable := displayTables[m.selectedRow]
 					return m, fetchSchemaInfo(m.driver, selectedTable.SchemaName, selectedTable.TableName)
 				}
 			}
@@ -562,7 +640,7 @@ func (m Model) handleNormalModeKeys(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 					m.schemaPanelSelected--
 				}
 			} else {
-				// Move up in table list
+				// Move up in table list (respects active filter)
 				if m.selectedRow > 0 {
 					m.selectedRow--
 					// Reset schema panel cursor when switching tables
@@ -573,8 +651,11 @@ func (m Model) handleNormalModeKeys(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 					// Trigger async schema info fetch for new table
 					m.schemaInfoLoading = true
 					m.schemaInfo = nil
-					selectedTable := m.tables[m.selectedRow]
-					return m, fetchSchemaInfo(m.driver, selectedTable.SchemaName, selectedTable.TableName)
+					displayTables := m.displayTables()
+					if m.selectedRow < len(displayTables) {
+						selectedTable := displayTables[m.selectedRow]
+						return m, fetchSchemaInfo(m.driver, selectedTable.SchemaName, selectedTable.TableName)
+					}
 				}
 			}
 
@@ -592,8 +673,8 @@ func (m Model) handleNormalModeKeys(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 				// Will be bounded by render function
 				m.schemaPanelSelected = 1000
 			} else {
-				if len(m.tables) > 0 {
-					m.selectedRow = len(m.tables) - 1
+				if displayTables := m.displayTables(); len(displayTables) > 0 {
+					m.selectedRow = len(displayTables) - 1
 				}
 			}
 
@@ -618,10 +699,11 @@ func (m Model) handleNormalModeKeys(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 
 			m = m.debugLog("PageDown (home): visibleRows=%d, jumpSize=%d, currentRow=%d", visibleRows, jumpSize, m.selectedRow)
 
-			// Move cursor down by jumpSize
+			// Move cursor down by jumpSize (respects active filter)
+			displayTables := m.displayTables()
 			newRow := m.selectedRow + jumpSize
-			if newRow >= len(m.tables) {
-				newRow = len(m.tables) - 1
+			if newRow >= len(displayTables) {
+				newRow = len(displayTables) - 1
 			}
 			if newRow < 0 {
 				newRow = 0
@@ -761,7 +843,8 @@ func (m Model) handleTableViewModeKeys(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 				m.sqlQueryInput.SetValue("")
 			}
 			m.sqlQueryInput.Focus()
-			m = m.updateSQLHistorySuggestions()
+			m.sqlHistorySuggestionsVisible = false
+			m.sqlHistorySelected = -1
 
 		case CommandFilterContent:
 			m.inlineSearchMode = true
@@ -1270,21 +1353,19 @@ func (m Model) handleSQLQueryModeKeys(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	// Handle up/down for history suggestions navigation
 	if key == "up" {
 		if m.sqlHistorySuggestionsVisible && len(m.sqlHistorySuggestions) > 0 {
-			m.sqlHistorySelected--
-			if m.sqlHistorySelected < 0 {
-				m.sqlHistorySelected = len(m.sqlHistorySuggestions) - 1
+			if m.sqlHistorySelected > 0 {
+				m.sqlHistorySelected--
 			}
 			return m, nil
 		}
 	} else if key == "down" {
 		if m.sqlHistorySuggestionsVisible && len(m.sqlHistorySuggestions) > 0 {
-			m.sqlHistorySelected++
-			if m.sqlHistorySelected >= len(m.sqlHistorySuggestions) {
-				m.sqlHistorySelected = 0
+			if m.sqlHistorySelected < len(m.sqlHistorySuggestions)-1 {
+				m.sqlHistorySelected++
 			}
 			return m, nil
 		}
-	} else if key == "ctrl+n" {
+	} else if key == "ctrl+r" {
 		if m.sqlHistory != nil {
 			m.sqlHistorySuggestionsVisible = !m.sqlHistorySuggestionsVisible
 			if m.sqlHistorySuggestionsVisible {
@@ -1338,8 +1419,8 @@ func (m Model) handleSQLQueryModeKeys(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		var cmd tea.Cmd
 		m.sqlQueryInput, cmd = m.sqlQueryInput.Update(msg)
 
-		// Update suggestions if the value changed
-		if m.sqlQueryInput.Value() != oldValue {
+		// Refresh suggestions only if the panel is already open
+		if m.sqlHistorySuggestionsVisible && m.sqlQueryInput.Value() != oldValue {
 			m = m.updateSQLHistorySuggestions()
 		}
 
@@ -1349,6 +1430,9 @@ func (m Model) handleSQLQueryModeKeys(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	return m, nil
 }
 
+// updateSQLHistorySuggestions refreshes the suggestion list for the current
+// input. It never opens the panel on its own — the panel is only opened
+// explicitly via ctrl+r.
 func (m Model) updateSQLHistorySuggestions() Model {
 	if m.sqlHistory == nil {
 		return m
@@ -1357,12 +1441,10 @@ func (m Model) updateSQLHistorySuggestions() Model {
 	m.sqlHistorySuggestions = m.sqlHistory.SearchEntries(m.sqlQueryInput.Value())
 
 	if len(m.sqlHistorySuggestions) > 0 {
-		m.sqlHistorySuggestionsVisible = true
 		if m.sqlHistorySelected < 0 || m.sqlHistorySelected >= len(m.sqlHistorySuggestions) {
 			m.sqlHistorySelected = 0
 		}
 	} else {
-		m.sqlHistorySuggestionsVisible = false
 		m.sqlHistorySelected = -1
 	}
 

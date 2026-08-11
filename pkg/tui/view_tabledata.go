@@ -50,6 +50,14 @@ func (m Model) renderTableDataView() string {
 		availableHeight = availableHeight - 2
 	}
 
+	// Make room for the SQL history suggestions window rendered below the table
+	if m.sqlQueryMode && m.sqlHistorySuggestionsVisible && len(m.sqlHistorySuggestions) > 0 {
+		availableHeight = availableHeight - m.sqlHistoryWindowHeight()
+		if availableHeight < 5 {
+			availableHeight = 5
+		}
+	}
+
 	// Column widths - calculate based on content
 	columnWidths := make([]int, len(m.tableColumns))
 	for i, col := range m.tableColumns {
